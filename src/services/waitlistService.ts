@@ -4,8 +4,7 @@ import crypto from 'crypto';
 import EncryptionConfigManager from './EncryptionConfigManager';
 import { fetchIpAndSetFingerprint, generateFingerprint } from '@/Utils';
 
-// Get the authentication token from cookies
-const getToken = () => Cookies.get('qbc-auth');
+
 
 // Use a fallback value for the API base URL if not defined
 const getApiBaseUrl = () => process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.quickbid.co.in';
@@ -141,15 +140,8 @@ const extractWaitlistData = (data: any): any[] | any => {
  */
 export const fetchWaitlistUsers = async () => {
   try {
-    const token = getToken();
     
-    if (!token) {
-      throw new Error('Authentication token not found');
-    }
-    
-    // Generate fingerprints
-    const geoTag = await fetchIpAndSetFingerprint();
-    const fingerprint = await generateFingerprint();
+  
     
     const apiBaseUrl = getApiBaseUrl();
     console.log(`Using API base URL: ${apiBaseUrl}`);
@@ -158,10 +150,9 @@ export const fetchWaitlistUsers = async () => {
       `${apiBaseUrl}/qb/users/v1/waitlist`,
       {
         headers: {
-          Authorization: `${token}`,
+        
           "x-api-key": "quickbid@2024",
-          "X-TS-Token": fingerprint,
-          "X-GEO-TAG": geoTag,
+       
         },
       }
     );
