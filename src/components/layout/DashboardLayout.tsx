@@ -52,6 +52,7 @@ const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard', roles: ['admin', 'sales', 'demonstrator'] },
   { text: 'Leads', icon: <PeopleIcon />, path: '/leads', roles: ['admin', 'sales'] },
   { text: 'Appointments', icon: <CalendarIcon />, path: '/appointments', roles: ['admin', 'sales'] },
+  { text: 'Waitlist', icon: <PeopleIcon />, path: '/waitlist', roles: ['admin', 'sales'] },
   // { text: 'Tenders', icon: <GavelIcon />, path: '/tenders', roles: ['admin', 'sales'] },
   // { text: 'Training', icon: <SchoolIcon />, path: '/training', roles: ['admin', 'sales'] },
   // { text: 'Compliance', icon: <SecurityIcon />, path: '/compliance', roles: ['admin', 'sales'] },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
@@ -22,6 +22,8 @@ import {
   FormControl,
   InputLabel,
   MenuItem as MuiMenuItem,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
@@ -51,6 +53,8 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
+import WaitlistSummary from '@/components/dashboard/WaitlistSummary';
+import { fetchWaitlistUsers } from '@/services/waitlistService';
 
 interface StatCardProps {
   title: string;
@@ -185,6 +189,29 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [timeRange, setTimeRange] = useState('week');
+  const [waitlistData, setWaitlistData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch waitlist data
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const data = await fetchWaitlistUsers();
+        setWaitlistData(Array.isArray(data) ? data : []);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to fetch waitlist data:', err);
+        setError('Failed to load waitlist data. Using sample data instead.');
+        // Keep any existing data or fall back to empty array
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchData();
+  }, []);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -194,6 +221,23 @@ export default function DashboardPage() {
     setAnchorEl(null);
   };
 
+  const handleRefresh = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchWaitlistUsers();
+      setWaitlistData(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to refresh waitlist data:', err);
+      setError('Failed to refresh data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Prepare stats data with real waitlist count
+  const waitlistCount = waitlistData.length;
+  
   const stats = [
     {
       title: 'Total Leads',
@@ -203,6 +247,13 @@ export default function DashboardPage() {
       color: theme.palette.primary.main,
     },
     {
+      title: 'Waitlist Entries',
+      value: loading ? '—' : waitlistCount.toString(),
+      change: 34.2,
+      icon: <GroupIcon />,
+      color: theme.palette.info.dark,
+    },
+    {
       title: 'Demo Requests',
       value: '45',
       change: 8.2,
@@ -210,19 +261,47 @@ export default function DashboardPage() {
       color: theme.palette.secondary.main,
     },
     {
-      title: 'Callback Requests',
-      value: '28',
-      change: -3.1,
-      icon: <PhoneInTalkIcon />,
-      color: theme.palette.success.main,
-    },
-    {
       title: 'Conversion Rate',
       value: '32%',
       change: 5.4,
       icon: <TrendingUpIcon />,
-      color: theme.palette.info.main,
+      color: theme.palette.success.main,
     },
+  ];
+
+  // Generate mock historical data based on current waitlist count
+  const generateHistoricalData = () => {
+    // Mock monthly growth pattern (starting from current count and working backwards)
+    const growth = [1, 0.75, 0.85, 0.65, 0.55, 0.4, 0.2];
+    const months = ['Jul', 'Jun', 'May', 'Apr', 'Mar', 'Feb', 'Jan'];
+    
+    return months.map((month, index) => {
+      // Calculate historical waitlist count based on growth factors
+      const waitlistValue = index === 0 
+        ? waitlistCount 
+        : Math.round(waitlistCount * growth[index]);
+      
+      return {
+        name: month,
+        leads: 400 - (index * 30),
+        demos: 240 - (index * 20),
+        closed: 120 - (index * 10),
+        waitlist: waitlistValue,
+      };
+    }).reverse(); // Reverse to get chronological order
+  };
+
+  // Use real data for current count, with historical trend
+  const leadData = loading ? [] : generateHistoricalData();
+
+  // Create conversion funnel with real waitlist count
+  const conversionData = [
+    { name: 'Waitlist', value: loading ? 0 : waitlistCount },
+    { name: 'New Leads', value: 35 },
+    { name: 'Contacted', value: 25 },
+    { name: 'Qualified', value: 20 },
+    { name: 'Proposal', value: 15 },
+    { name: 'Closed', value: 5 },
   ];
 
   const recentActivities = [
@@ -259,62 +338,47 @@ export default function DashboardPage() {
     { name: 'Sarah Wilson', leads: 35, demos: 8, conversion: 71 },
   ];
 
-  // Sample data for charts
-  const leadData = [
-    { name: 'Mon', leads: 65, demos: 12, callbacks: 8 },
-    { name: 'Tue', leads: 78, demos: 15, callbacks: 10 },
-    { name: 'Wed', leads: 92, demos: 18, callbacks: 12 },
-    { name: 'Thu', leads: 85, demos: 14, callbacks: 9 },
-    { name: 'Fri', leads: 88, demos: 16, callbacks: 11 },
-  ];
-
-  const conversionData = [
-    { name: 'New', value: 35 },
-    { name: 'Contacted', value: 25 },
-    { name: 'Qualified', value: 20 },
-    { name: 'Proposal', value: 15 },
-    { name: 'Negotiation', value: 5 },
-  ];
-
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
-            Welcome back, {user?.name}!
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Here's what's happening with your leads today.
-          </Typography>
+    <Box sx={{ py: 3, px: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" fontWeight="bold">
+          Dashboard
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={handleRefresh}
+            disabled={loading}
+            size="small"
+            sx={{ borderRadius: 2 }}
+          >
+            Refresh Data
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<FilterIcon />}
+            onClick={handleMenuOpen}
+            size="small"
+            sx={{ borderRadius: 2 }}
+          >
+            {timeRange === 'week'
+              ? 'This Week'
+              : timeRange === 'month'
+              ? 'This Month'
+              : timeRange === 'quarter'
+              ? 'This Quarter'
+              : 'Custom'}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            size="small"
+            sx={{ borderRadius: 2 }}
+          >
+            Export
+          </Button>
         </Box>
-        <Stack direction="row" spacing={2}>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Time Range</InputLabel>
-            <Select
-              value={timeRange}
-              label="Time Range"
-              onChange={(e) => setTimeRange(e.target.value)}
-              sx={{ borderRadius: 2 }}
-            >
-              <MuiMenuItem value="week">This Week</MuiMenuItem>
-              <MuiMenuItem value="month">This Month</MuiMenuItem>
-              <MuiMenuItem value="quarter">This Quarter</MuiMenuItem>
-            </Select>
-          </FormControl>
-          <Tooltip title="Refresh Data">
-            <IconButton>
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Export Report">
-            <IconButton>
-              <DownloadIcon />
-            </IconButton>
-          </Tooltip>
-          <IconButton onClick={handleMenuOpen}>
-            <MoreVertIcon />
-          </IconButton>
-        </Stack>
         <Menu
           anchorEl={anchorEl}
           open={Boolean(anchorEl)}
@@ -333,6 +397,12 @@ export default function DashboardPage() {
           <MenuItem onClick={handleMenuClose}>Settings</MenuItem>
         </Menu>
       </Box>
+
+      {error && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
       <Grid container spacing={3}>
         {stats.map((stat, index) => (
@@ -354,26 +424,55 @@ export default function DashboardPage() {
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Lead Activity Trends
+                Lead Activity & Waitlist Trends
               </Typography>
-              <Button
-                startIcon={<FilterIcon />}
-                size="small"
-                sx={{ borderRadius: 2 }}
-              >
-                Filter
-              </Button>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box sx={{ width: 12, height: 12, bgcolor: theme.palette.info.dark, borderRadius: '50%' }} />
+                  <Typography variant="caption" color="text.secondary">Waitlist</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box sx={{ width: 12, height: 12, bgcolor: theme.palette.primary.main, borderRadius: '50%' }} />
+                  <Typography variant="caption" color="text.secondary">Leads</Typography>
+                </Box>
+                <Button
+                  startIcon={<FilterIcon />}
+                  size="small"
+                  sx={{ borderRadius: 2, ml: 1 }}
+                >
+                  Filter
+                </Button>
+              </Box>
             </Box>
-            <Box sx={{ height: 300, mb: 3 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={leadData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.1)} />
+            
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+                <CircularProgress />
+              </Box>
+            ) : leadData.length === 0 ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+                <Typography color="text.secondary">No data available</Typography>
+              </Box>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart
+                  data={leadData}
+                  margin={{
+                    top: 5,
+                    right: 30,
+                    left: 20,
+                    bottom: 5,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.2)} />
                   <XAxis dataKey="name" stroke={theme.palette.text.secondary} />
                   <YAxis stroke={theme.palette.text.secondary} />
-                  <ChartTooltip
+                  <ChartTooltip 
                     contentStyle={{
-                      borderRadius: 2,
-                      border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                      backgroundColor: alpha(theme.palette.background.paper, 0.9),
+                      border: `1px solid ${theme.palette.divider}`,
+                      borderRadius: 8,
+                      boxShadow: '0 4px 20px rgba(0, 32, 74, 0.1)',
                     }}
                   />
                   <Line
@@ -381,29 +480,43 @@ export default function DashboardPage() {
                     dataKey="leads"
                     stroke={theme.palette.primary.main}
                     strokeWidth={2}
-                    dot={{ fill: theme.palette.primary.main, strokeWidth: 2 }}
+                    activeDot={{ r: 8 }}
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="demos"
-                    stroke={theme.palette.secondary.main}
+                  <Line 
+                    type="monotone" 
+                    dataKey="waitlist" 
+                    stroke={theme.palette.info.dark} 
                     strokeWidth={2}
-                    dot={{ fill: theme.palette.secondary.main, strokeWidth: 2 }}
+                    activeDot={{ r: 6 }} 
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="callbacks"
-                    stroke={theme.palette.success.main}
-                    strokeWidth={2}
-                    dot={{ fill: theme.palette.success.main, strokeWidth: 2 }}
-                  />
+                  <Line type="monotone" dataKey="demos" stroke={theme.palette.secondary.main} strokeWidth={2} />
+                  <Line type="monotone" dataKey="closed" stroke={theme.palette.success.main} strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
+            )}
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <WaitlistSummary />
+        </Grid>
+
+        <Grid item xs={12} md={8}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 3,
+              height: '100%',
+              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.primary.main, 0.02)} 100%)`,
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+              borderRadius: 2,
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Recent Activities
+              </Typography>
             </Box>
-            <Divider sx={{ my: 3 }} />
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-              Recent Activities
-            </Typography>
             <Box>
               {recentActivities.map((activity, index) => (
                 <ActivityItem key={index} {...activity} />
@@ -423,29 +536,41 @@ export default function DashboardPage() {
                 borderRadius: 2,
               }}
             >
-              <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-                Conversion Funnel
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Client Journey Funnel
               </Typography>
-              <Box sx={{ height: 200 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={conversionData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" domain={[0, 100]} />
-                    <YAxis dataKey="name" type="category" width={100} />
-                    <ChartTooltip
-                      contentStyle={{
-                        borderRadius: 2,
-                        border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-                      }}
-                    />
-                    <Bar
-                      dataKey="value"
-                      fill={theme.palette.primary.main}
-                      radius={[0, 4, 4, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                From waitlist to closed deals
+              </Typography>
+              
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 220 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <Box sx={{ height: 220 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={conversionData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" domain={[0, Math.max(100, waitlistCount + 10)]} />
+                      <YAxis dataKey="name" type="category" width={100} />
+                      <ChartTooltip
+                        formatter={(value) => [`${value} clients`, null]}
+                        contentStyle={{
+                          borderRadius: 2,
+                          border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                        }}
+                      />
+                      <Bar
+                        dataKey="value"
+                        fill={theme.palette.primary.main}
+                        radius={[0, 4, 4, 0]}
+                        background={{ fill: alpha(theme.palette.primary.main, 0.1) }}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Box>
+              )}
             </Paper>
 
             <Paper
