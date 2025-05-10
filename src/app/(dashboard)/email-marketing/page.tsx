@@ -372,7 +372,7 @@ export default function EmailMarketingPage() {
   };
 
   // Function to dynamically update countdown timer in template
-  const updateLaunchCountdown = (templateContent) => {
+  const updateLaunchCountdown = (templateContent:any) => {
     const countdown = calculateTimeRemaining();
     
     // Replace countdown values in the template
