@@ -42,6 +42,7 @@ import {
   Description as DescriptionIcon,
   Gavel as GavelIcon,
   CalendarToday as CalendarIcon,
+  Email as EmailIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -61,6 +62,7 @@ const menuItems = [
   { text: 'Demo Requests', icon: <VideoCallIcon />, path: '/demo-requests', roles: ['admin', 'sales', 'demonstrator'] },
   { text: 'Callback Requests', icon: <PhoneInTalkIcon />, path: '/callback-requests', roles: ['admin', 'sales'] },
   { text: 'Expert Consultation', icon: <SupportAgentIcon />, path: '/expert-consultation', roles: ['admin', 'sales'] },
+  { text: 'Email Marketing', icon: <EmailIcon />, path: '/email-marketing', roles: ['admin', 'sales', 'demonstrator'] },
   { text: 'Settings', icon: <SettingsIcon />, path: '/settings', roles: ['admin'] },
 ];
 
