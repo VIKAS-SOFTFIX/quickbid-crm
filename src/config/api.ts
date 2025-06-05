@@ -9,10 +9,11 @@ export const API_CONFIG = {
     ],
   },
   meta: {
-    appId: process.env.META_APP_ID,
-    appSecret: process.env.META_APP_SECRET,
-    accessToken: process.env.META_ACCESS_TOKEN,
-    instagramBusinessAccountId: process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID,
+    appId: "521705221031688",
+    accessToken:"EABzVY3dVDHkBO2KsFU5BclA4xLCn4nQHDecWXUq4jD9UsdKK3NBRh7ZADjMysbpDrNdVcbArRmNyjL74R2kfEwuI4NENxdRN8joczUh1SW8S2HGxaAcZC9lrEXoXGAwEEPlNsBNMmZC6GFisdcnZA6ZASYOibv0Tm3ZAWFNdJIAcGa2ZA4DcEt8NxeeEzGDVtU0vQZDZD",
+    whatsappPhoneNumberId: 549700231566477,
+    whatsappBusinessId:521705221031688,
+    instagramBusinessAccountId: null,
   },
   linkedin: {
     clientId: process.env.LINKEDIN_CLIENT_ID,

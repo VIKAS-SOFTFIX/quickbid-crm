@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Paper,
+  Card,
+  CardContent,
   CircularProgress,
   useTheme,
   alpha,
@@ -17,6 +18,7 @@ import {
   ListItemText,
   Divider,
   Alert,
+  IconButton,
 } from '@mui/material';
 import { fetchWaitlistUsers } from '@/services/waitlistService';
 import { useRouter } from 'next/navigation';
@@ -24,6 +26,10 @@ import {
   People as PeopleIcon,
   ArrowForward as ArrowForwardIcon,
   Refresh as RefreshIcon,
+  BusinessCenter as BusinessCenterIcon,
+  LocationOn as LocationOnIcon,
+  Badge as BadgeIcon,
+  MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 
 // Helper to truncate text
@@ -39,6 +45,14 @@ export default function WaitlistSummary() {
   const [waitlistData, setWaitlistData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Define colors to match the dashboard's colorPalette
+  const colors = {
+    primary: theme.palette.primary.main,
+    background: '#f9fafc',
+    cardBg: '#ffffff',
+    waitlist: '#5470c6'
+  };
 
   // Fetch waitlist data
   const fetchData = async () => {
@@ -71,90 +85,165 @@ export default function WaitlistSummary() {
   const totalCount = waitlistData.length;
 
   return (
-    <Paper
+    <Card
       elevation={0}
       sx={{
-        p: 3,
+        borderRadius: 3,
+        border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+        overflow: 'hidden',
         height: '100%',
-        borderRadius: 2,
-        border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.02)} 0%, ${alpha(theme.palette.primary.main, 0.05)} 100%)`,
         display: 'flex',
         flexDirection: 'column',
+        backgroundColor: colors.cardBg,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <CardContent sx={{ p: 0, '&:last-child': { pb: 0 }, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ 
+          p: { xs: 2, sm: 3 }, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.08)}`
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box
             sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 1.5,
+                width: 42,
+                height: 42,
+                borderRadius: 2,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: alpha(theme.palette.primary.main, 0.1),
-              color: theme.palette.primary.main,
+                background: `linear-gradient(135deg, ${colors.waitlist} 0%, ${alpha(colors.waitlist, 0.8)} 100%)`,
+                color: 'white',
+                boxShadow: `0 4px 12px ${alpha(colors.waitlist, 0.3)}`,
             }}
           >
             <PeopleIcon />
           </Box>
-          <Typography variant="h6" fontWeight="medium">
+            <Typography variant="h6" fontWeight={600}>
             Waitlist
           </Typography>
         </Box>
-        <Button 
-          startIcon={<RefreshIcon />} 
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <IconButton 
           onClick={fetchData}
           disabled={loading}
           size="small"
-          sx={{ minWidth: 0, p: 1 }}
+              sx={{ 
+                bgcolor: alpha(theme.palette.primary.main, 0.05),
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                }
+              }}
         >
-          Refresh
-        </Button>
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+            <IconButton 
+              size="small"
+              sx={{ 
+                bgcolor: alpha(theme.palette.primary.main, 0.05),
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                }
+              }}
+            >
+              <MoreVertIcon fontSize="small" />
+            </IconButton>
+          </Box>
       </Box>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4, flexGrow: 1, alignItems: 'center' }}>
-          <CircularProgress size={32} />
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            py: { xs: 3, sm: 4 }, 
+            flexGrow: 1, 
+            alignItems: 'center' 
+          }}>
+            <CircularProgress size={36} sx={{ color: colors.waitlist }} />
         </Box>
       ) : error ? (
-        <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={{ m: { xs: 2, sm: 3 }, borderRadius: 2, boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
           {error}
         </Alert>
       ) : waitlistData.length === 0 ? (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 3, flexGrow: 1 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            py: { xs: 4, sm: 5 }, 
+            px: 2,
+            flexGrow: 1 
+          }}>
+            <Box
+              sx={{
+                width: 60,
+                height: 60,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: alpha(colors.waitlist, 0.1),
+                color: colors.waitlist,
+                mb: 2,
+              }}
+            >
+              <PeopleIcon sx={{ fontSize: 30 }} />
+            </Box>
+            <Typography variant="body1" fontWeight={500} color="text.primary" align="center" sx={{ mb: 1 }}>
+              No entries in waitlist yet
+            </Typography>
           <Typography variant="body2" color="text.secondary" align="center">
-            No entries in the waitlist yet
+              Waitlist entries will appear here once available
           </Typography>
         </Box>
       ) : (
         <>
-          <List sx={{ p: 0, flexGrow: 1 }}>
+            <List sx={{ p: 0, flexGrow: 1, overflow: 'auto', maxHeight: { xs: '300px', sm: 'auto' } }}>
             {displayedItems.map((user, index) => (
-              <Box key={user._id}>
+                <Box key={user._id || index}>
                 <ListItem 
                   sx={{ 
-                    px: 1, 
-                    py: 1.5,
+                      px: { xs: 2, sm: 3 }, 
+                      py: { xs: 1.5, sm: 2 },
                     '&:hover': { 
-                      bgcolor: alpha(theme.palette.primary.main, 0.04),
-                      borderRadius: 1,
+                        bgcolor: alpha(colors.waitlist, 0.03),
                     },
                   }}
                 >
                   <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+                      <Avatar 
+                        sx={{ 
+                          bgcolor: alpha(colors.waitlist, 0.15),
+                          color: colors.waitlist,
+                          fontWeight: 600,
+                        }}
+                      >
                       {user.name.charAt(0)}
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
-                    primary={truncateText(user.name, 20)}
+                      primary={
+                        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>
+                          {truncateText(user.name, 20)}
+                        </Typography>
+                      }
                     secondary={
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                        <Typography variant="body2" color="text.secondary">
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                            <BusinessCenterIcon sx={{ fontSize: 14, color: theme.palette.text.secondary }} />
+                            <Typography variant="caption" color="text.secondary" sx={{ 
+                              maxWidth: { xs: '160px', sm: '100%' }, 
+                              overflow: 'hidden', 
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
                           {user.companyName} • {user.designation}
                         </Typography>
+                          </Box>
                         <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
                           {user.states.slice(0, 2).map((state: string) => (
                             <Chip
@@ -164,8 +253,10 @@ export default function WaitlistSummary() {
                               sx={{
                                 height: 20,
                                 fontSize: '0.65rem',
-                                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                                color: theme.palette.primary.main,
+                                  bgcolor: alpha(colors.waitlist, 0.1),
+                                  color: colors.waitlist,
+                                  fontWeight: 500,
+                                  borderRadius: 1,
                               }}
                             />
                           ))}
@@ -178,6 +269,8 @@ export default function WaitlistSummary() {
                                 fontSize: '0.65rem',
                                 bgcolor: alpha(theme.palette.secondary.main, 0.1),
                                 color: theme.palette.secondary.main,
+                                  fontWeight: 500,
+                                  borderRadius: 1,
                               }}
                             />
                           )}
@@ -186,26 +279,49 @@ export default function WaitlistSummary() {
                     }
                   />
                 </ListItem>
-                {index < displayedItems.length - 1 && <Divider component="li" />}
+                  {index < displayedItems.length - 1 && <Divider component="li" sx={{ opacity: 0.5 }} />}
               </Box>
             ))}
           </List>
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, pt: 2, borderTop: `1px solid ${alpha(theme.palette.divider, 0.5)}` }}>
-            <Typography variant="body2" color="text.secondary">
-              {totalCount} entries in waitlist
-            </Typography>
+            <Box sx={{ 
+              px: { xs: 2, sm: 3 }, 
+              py: 2, 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              borderTop: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+              bgcolor: alpha(colors.background, 0.5),
+            }}>
+              <Chip 
+                label={`${totalCount} entries`} 
+                size="small"
+                sx={{
+                  height: 24,
+                  bgcolor: alpha(colors.waitlist, 0.1),
+                  color: colors.waitlist,
+                  fontWeight: 600,
+                  borderRadius: 1.5,
+                }}
+              />
             <Button
               endIcon={<ArrowForwardIcon />}
               onClick={handleViewAll}
-              size="small"
-              sx={{ minWidth: 0 }}
+                sx={{ 
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  color: theme.palette.primary.main,
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                  }
+                }}
             >
               View All
             </Button>
           </Box>
         </>
       )}
-    </Paper>
+      </CardContent>
+    </Card>
   );
 } 

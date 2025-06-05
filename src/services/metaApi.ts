@@ -4,9 +4,13 @@ import { API_CONFIG } from '@/config/api';
 class MetaApiService {
   private baseUrl = 'https://graph.facebook.com/v18.0';
   private accessToken: string;
+  private whatsappPhoneNumberId: string;
+  private whatsappBusinessId: string;
 
   constructor() {
     this.accessToken = API_CONFIG.meta.accessToken || '';
+    this.whatsappPhoneNumberId = String(API_CONFIG.meta.whatsappPhoneNumberId) || '';
+    this.whatsappBusinessId = String(API_CONFIG.meta.whatsappBusinessId) || '';
   }
 
   async getFacebookLeads() {
@@ -26,6 +30,12 @@ class MetaApiService {
 
   async getInstagramLeads() {
     try {
+      // Only call this if instagramBusinessAccountId exists
+      if (!API_CONFIG.meta.instagramBusinessAccountId) {
+        console.warn('Instagram Business Account ID is not configured');
+        return [];
+      }
+      
       const response = await axios.get(
         `${this.baseUrl}/${API_CONFIG.meta.instagramBusinessAccountId}/insights`,
         {
@@ -40,6 +50,103 @@ class MetaApiService {
       return this.transformInstagramLeads(response.data.data);
     } catch (error) {
       console.error('Error fetching Instagram leads:', error);
+      throw error;
+    }
+  }
+
+  // WhatsApp API methods
+  async sendWhatsAppTextMessage(to: string, message: string) {
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/${this.whatsappPhoneNumberId}/messages`,
+        {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to,
+          type: 'text',
+          text: {
+            body: message,
+          },
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.accessToken}`,
+          },
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error sending WhatsApp message:', error);
+      throw error;
+    }
+  }
+
+  async sendWhatsAppTemplateMessage(to: string, templateName: string, languageCode: string, components: any[] = []) {
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/${this.whatsappPhoneNumberId}/messages`,
+        {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to,
+          type: 'template',
+          template: {
+            name: templateName,
+            language: {
+              code: languageCode,
+            },
+            components,
+          },
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.accessToken}`,
+          },
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error sending WhatsApp template message:', error);
+      throw error;
+    }
+  }
+
+  async getWhatsAppTemplates() {
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/${this.whatsappBusinessId}/message_templates`,
+        {
+          params: {
+            access_token: this.accessToken,
+          },
+        }
+      );
+      
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching WhatsApp templates:', error);
+      throw error;
+    }
+  }
+
+  async getWhatsAppMessageMedia(mediaId: string) {
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/${mediaId}`,
+        {
+          params: {
+            access_token: this.accessToken,
+          },
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching WhatsApp media:', error);
       throw error;
     }
   }

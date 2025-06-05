@@ -24,6 +24,19 @@ import {
   MenuItem as MuiMenuItem,
   CircularProgress,
   Alert,
+  Card,
+  CardContent,
+  Tab,
+  Tabs,
+  TableContainer,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Badge,
+  Skeleton,
+  InputBase,
 } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
@@ -40,6 +53,16 @@ import {
   Assessment as AssessmentIcon,
   Group as GroupIcon,
   Timeline as TimelineIcon,
+  ShowChart as ShowChartIcon,
+  AttachMoney as AttachMoneyIcon,
+  DataUsage as DataUsageIcon,
+  BarChart as BarChartIcon,
+  Phone as PhoneIcon,
+  Notifications as NotificationsIcon,
+  Search as SearchIcon,
+  AccountCircle as AccountCircleIcon,
+  ArrowForward as ArrowForwardIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -52,8 +75,13 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  Area,
+  AreaChart,
 } from 'recharts';
-import WaitlistSummary from '@/components/dashboard/WaitlistSummary';
 import { fetchWaitlistUsers } from '@/services/waitlistService';
 
 interface StatCardProps {
@@ -62,70 +90,140 @@ interface StatCardProps {
   change: number;
   icon: React.ReactNode;
   color: string;
+  chartData?: { name: string; value: number }[];
 }
 
-const StatCard = ({ title, value, change, icon, color }: StatCardProps) => {
+const StatCard = ({ title, value, change, icon, color, chartData }: StatCardProps) => {
   const theme = useTheme();
   const isPositive = change >= 0;
 
   return (
-    <Paper
+    <Card
       elevation={0}
       sx={{
-        p: 3,
         height: '100%',
-        background: `linear-gradient(135deg, ${alpha(color, 0.1)} 0%, ${alpha(color, 0.05)} 100%)`,
-        border: `1px solid ${alpha(color, 0.1)}`,
-        borderRadius: 2,
+        borderRadius: 3,
+        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+        boxShadow: `0 4px 20px ${alpha(color, 0.08)}`,
         transition: 'all 0.3s ease-in-out',
+        overflow: 'visible',
         '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: `0 4px 20px ${alpha(color, 0.15)}`,
+          transform: 'translateY(-5px)',
+          boxShadow: `0 8px 25px ${alpha(color, 0.15)}`,
         },
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+      <CardContent sx={{ p: 3, height: '100%', position: 'relative' }}>
+        {/* Icon in circle */}
         <Box
           sx={{
+            position: 'absolute',
+            top: -20,
+            right: 24,
             width: 48,
             height: 48,
-            borderRadius: 2,
+            borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: alpha(color, 0.1),
-            color: color,
+            background: `linear-gradient(135deg, ${color} 0%, ${alpha(color, 0.8)} 100%)`,
+            color: 'white',
+            boxShadow: `0 4px 14px ${alpha(color, 0.4)}`,
+            zIndex: 1,
           }}
         >
           {icon}
         </Box>
-        <IconButton size="small">
-          <MoreVertIcon />
-        </IconButton>
-      </Box>
-      <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
-        {value}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {title}
-      </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {isPositive ? (
-          <ArrowUpwardIcon sx={{ color: theme.palette.success.main, fontSize: 20 }} />
-        ) : (
-          <ArrowDownwardIcon sx={{ color: theme.palette.error.main, fontSize: 20 }} />
+
+        <Box sx={{ mt: 1.5, mb: 0.5 }}>
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 700,
+              mb: 0.5,
+              fontSize: { xs: '1.5rem', md: '1.75rem' },
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {value}
+          </Typography>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 2, fontSize: '0.875rem', fontWeight: 500 }}
+          >
+            {title}
+          </Typography>
+        </Box>
+
+        {/* Mini chart */}
+        {chartData && (
+          <Box sx={{ height: 40, width: '100%', mb: 1 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={chartData}
+                margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id={`colorGradient-${title}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={color} stopOpacity={0.2} />
+                    <stop offset="95%" stopColor={color} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke={color}
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill={`url(#colorGradient-${title})`}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </Box>
         )}
-        <Typography
-          variant="body2"
-          sx={{
-            color: isPositive ? theme.palette.success.main : theme.palette.error.main,
-            fontWeight: 600,
-          }}
-        >
-          {Math.abs(change)}% from last month
-        </Typography>
-      </Box>
-    </Paper>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 'auto' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              px: 1,
+              py: 0.5,
+              borderRadius: 1,
+              bgcolor: isPositive
+                ? alpha(theme.palette.success.main, 0.1)
+                : alpha(theme.palette.error.main, 0.1),
+            }}
+          >
+            {isPositive ? (
+              <ArrowUpwardIcon
+                sx={{ color: theme.palette.success.main, fontSize: 16 }}
+              />
+            ) : (
+              <ArrowDownwardIcon
+                sx={{ color: theme.palette.error.main, fontSize: 16 }}
+              />
+            )}
+            <Typography
+              variant="caption"
+              sx={{
+                color: isPositive
+                  ? theme.palette.success.main
+                  : theme.palette.error.main,
+                fontWeight: 600,
+              }}
+            >
+              {Math.abs(change)}%
+            </Typography>
+          </Box>
+          <Typography variant="caption" color="text.secondary" fontWeight={500}>
+            vs last month
+          </Typography>
+        </Box>
+      </CardContent>
+    </Card>
   );
 };
 
@@ -152,36 +250,59 @@ const ActivityItem = ({ title, description, time, type }: ActivityItemProps) => 
   };
 
   return (
-    <Box sx={{ display: 'flex', gap: 2, p: 2, '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.05) } }}>
+    <Box sx={{ display: 'flex', gap: 2, p: 2, '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.03), borderRadius: 2 } }}>
       <Box
         sx={{
           width: 40,
           height: 40,
-          borderRadius: 2,
+          borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           background: alpha(getTypeColor(), 0.1),
           color: getTypeColor(),
+          flexShrink: 0,
         }}
       >
         {type === 'lead' && <PeopleIcon />}
         {type === 'demo' && <VideoCallIcon />}
         {type === 'callback' && <PhoneInTalkIcon />}
       </Box>
-      <Box sx={{ flex: 1 }}>
+      <Box sx={{ flex: 1, overflow: 'hidden' }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
           {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="text.secondary" noWrap>
           {description}
         </Typography>
       </Box>
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
         {time}
       </Typography>
     </Box>
   );
+};
+
+// Helper function to blend two colors based on a ratio (0-1)
+const blend = (color1: string, color2: string, ratio: number) => {
+  // Parse hex colors to RGB
+  const parseHex = (hex: string) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return { r, g, b };
+  };
+
+  // Blend the RGB values
+  const c1 = parseHex(color1);
+  const c2 = parseHex(color2);
+  
+  const r = Math.round(c1.r * (1 - ratio) + c2.r * ratio);
+  const g = Math.round(c1.g * (1 - ratio) + c2.g * ratio);
+  const b = Math.round(c1.b * (1 - ratio) + c2.b * ratio);
+  
+  // Convert back to hex
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 };
 
 export default function DashboardPage() {
@@ -192,6 +313,18 @@ export default function DashboardPage() {
   const [waitlistData, setWaitlistData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tabValue, setTabValue] = useState(0);
+
+  // Enhanced color palette
+  const colorPalette = {
+    leads: theme.palette.primary.main,
+    waitlist: '#5470c6',
+    demos: theme.palette.secondary.main,
+    closed: '#91cc75',
+    background: '#f9fafc',
+    cardBg: '#ffffff',
+    chartGrid: '#eaecef',
+  };
 
   // Fetch waitlist data
   useEffect(() => {
@@ -235,6 +368,18 @@ export default function DashboardPage() {
     }
   };
 
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+
+  // Generate mock historical data for mini charts
+  const generateMiniChartData = (base: number, variance: number) => {
+    return Array.from({ length: 7 }).map((_, i) => ({
+      name: i.toString(),
+      value: base + Math.random() * variance * (Math.random() > 0.5 ? 1 : -1),
+    }));
+  };
+
   // Prepare stats data with real waitlist count
   const waitlistCount = waitlistData.length;
   
@@ -245,13 +390,15 @@ export default function DashboardPage() {
       change: 12.5,
       icon: <PeopleIcon />,
       color: theme.palette.primary.main,
+      chartData: generateMiniChartData(200, 50),
     },
     {
       title: 'Waitlist Entries',
       value: loading ? '—' : waitlistCount.toString(),
       change: 34.2,
       icon: <GroupIcon />,
-      color: theme.palette.info.dark,
+      color: colorPalette.waitlist,
+      chartData: generateMiniChartData(150, 30),
     },
     {
       title: 'Demo Requests',
@@ -259,13 +406,15 @@ export default function DashboardPage() {
       change: 8.2,
       icon: <VideoCallIcon />,
       color: theme.palette.secondary.main,
+      chartData: generateMiniChartData(30, 15),
     },
     {
       title: 'Conversion Rate',
       value: '32%',
       change: 5.4,
       icon: <TrendingUpIcon />,
-      color: theme.palette.success.main,
+      color: colorPalette.closed,
+      chartData: generateMiniChartData(25, 10),
     },
   ];
 
@@ -338,307 +487,510 @@ export default function DashboardPage() {
     { name: 'Sarah Wilson', leads: 35, demos: 8, conversion: 71 },
   ];
 
+  // Upcoming appointments
+  const upcomingAppointments = [
+    { client: 'ABC Company', type: 'Demo', time: '10:30 AM', date: 'Today', status: 'confirmed' },
+    { client: 'XYZ Corp', type: 'Sales Call', time: '2:00 PM', date: 'Today', status: 'pending' },
+    { client: 'Global Tech', type: 'Follow-up', time: '11:15 AM', date: 'Tomorrow', status: 'confirmed' },
+    { client: 'Acme Inc', type: 'Demo', time: '3:30 PM', date: 'Tomorrow', status: 'confirmed' },
+  ];
+
+  // Pie chart data for lead sources
+  const leadSourceData = [
+    { name: 'Website', value: 40 },
+    { name: 'Referral', value: 25 },
+    { name: 'Social Media', value: 20 },
+    { name: 'Email', value: 15 },
+  ];
+
+  // Colors for pie chart
+  const pieChartColors = [
+    colorPalette.leads,
+    colorPalette.waitlist, 
+    colorPalette.demos,
+    colorPalette.closed
+  ];
+
   return (
-    <Box sx={{ py: 3, px: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">
-          Dashboard
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+    <Box sx={{ 
+      py: 2,
+      px: { xs: 1, sm: 2 },
+      backgroundColor: colorPalette.background,
+      minHeight: '100%',
+    }}>
+      {/* Page header */}
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: 'space-between', 
+          alignItems: { xs: 'flex-start', sm: 'center' }, 
+          mb: { xs: 2, md: 3 },
+          gap: 2,
+        }}
+      >
+        <Box>
+          <Typography 
+            variant="h4" 
+            sx={{ 
+              fontWeight: 700, 
+              color: theme.palette.grey[800],
+              fontSize: { xs: '1.5rem', sm: '1.75rem' },
+              mb: 0.5,
+              letterSpacing: '-0.01em',
+            }}
+          >
+            Welcome back, {user?.name?.split(' ')[0]}!
+          </Typography>
+          <Typography 
+            variant="body1"
+            color="text.secondary"
+            sx={{ opacity: 0.85 }}
+          >
+            Here's what's happening with your sales today
+          </Typography>
+        </Box>
+        
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 1.5, 
+          alignSelf: { xs: 'flex-end', sm: 'center' },
+          '& .MuiButton-root': {
+            boxShadow: 'none',
+          }
+        }}>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <Select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value)}
+              displayEmpty
+              sx={{ 
+                borderRadius: 2,
+                height: 40,
+                backgroundColor: 'white',
+                '& .MuiOutlinedInput-notchedOutline': { 
+                  borderColor: alpha(theme.palette.primary.main, 0.2),
+                },
+              }}
+            >
+              <MenuItem value="day">Today</MenuItem>
+              <MenuItem value="week">This Week</MenuItem>
+              <MenuItem value="month">This Month</MenuItem>
+              <MenuItem value="quarter">This Quarter</MenuItem>
+            </Select>
+          </FormControl>
+          
           <Button
-            variant="outlined"
+            variant="contained"
             startIcon={<RefreshIcon />}
             onClick={handleRefresh}
             disabled={loading}
-            size="small"
-            sx={{ borderRadius: 2 }}
+            sx={{ 
+              borderRadius: 2,
+              height: 40,
+              px: 2,
+              background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${alpha(theme.palette.primary.dark, 0.85)} 100%)`,
+              '&:hover': {
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                background: `linear-gradient(90deg, ${theme.palette.primary.main} 30%, ${theme.palette.primary.dark} 100%)`,
+              },
+              '&:disabled': {
+                opacity: 0.7,
+              }
+            }}
           >
-            Refresh Data
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<FilterIcon />}
-            onClick={handleMenuOpen}
-            size="small"
-            sx={{ borderRadius: 2 }}
-          >
-            {timeRange === 'week'
-              ? 'This Week'
-              : timeRange === 'month'
-              ? 'This Month'
-              : timeRange === 'quarter'
-              ? 'This Quarter'
-              : 'Custom'}
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            size="small"
-            sx={{ borderRadius: 2 }}
-          >
-            Export
+            Refresh
           </Button>
         </Box>
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleMenuClose}
-          PaperProps={{
-            sx: {
-              mt: 1.5,
-              borderRadius: 2,
-              boxShadow: '0 4px 20px rgba(0, 32, 74, 0.1)',
-              minWidth: 200,
-            },
-          }}
-        >
-          <MenuItem onClick={handleMenuClose}>View All</MenuItem>
-          <MenuItem onClick={handleMenuClose}>Export Data</MenuItem>
-          <MenuItem onClick={handleMenuClose}>Settings</MenuItem>
-        </Menu>
       </Box>
 
       {error && (
-        <Alert severity="warning" sx={{ mb: 3 }}>
+        <Alert 
+          severity="warning" 
+          sx={{ 
+            mb: 3, 
+            borderRadius: 2,
+            boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+          }}
+        >
           {error}
         </Alert>
       )}
 
-      <Grid container spacing={3}>
+      {/* Stats cards */}
+      <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: { xs: 2, md: 3 } }}>
         {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
+          <Grid item xs={12} sm={6} lg={3} key={index}>
             <StatCard {...stat} />
           </Grid>
         ))}
+      </Grid>
 
-        <Grid item xs={12} md={8}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              height: '100%',
-              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.primary.main, 0.02)} 100%)`,
-              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-              borderRadius: 2,
-            }}
-          >
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Lead Activity & Waitlist Trends
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Box sx={{ width: 12, height: 12, bgcolor: theme.palette.info.dark, borderRadius: '50%' }} />
-                  <Typography variant="caption" color="text.secondary">Waitlist</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Box sx={{ width: 12, height: 12, bgcolor: theme.palette.primary.main, borderRadius: '50%' }} />
-                  <Typography variant="caption" color="text.secondary">Leads</Typography>
-                </Box>
-                <Button
-                  startIcon={<FilterIcon />}
-                  size="small"
-                  sx={{ borderRadius: 2, ml: 1 }}
-                >
-                  Filter
-                </Button>
-              </Box>
-            </Box>
-            
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
-                <CircularProgress />
-              </Box>
-            ) : leadData.length === 0 ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
-                <Typography color="text.secondary">No data available</Typography>
-              </Box>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart
-                  data={leadData}
-                  margin={{
-                    top: 5,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
-                  }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.2)} />
-                  <XAxis dataKey="name" stroke={theme.palette.text.secondary} />
-                  <YAxis stroke={theme.palette.text.secondary} />
-                  <ChartTooltip 
-                    contentStyle={{
-                      backgroundColor: alpha(theme.palette.background.paper, 0.9),
-                      border: `1px solid ${theme.palette.divider}`,
-                      borderRadius: 8,
-                      boxShadow: '0 4px 20px rgba(0, 32, 74, 0.1)',
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="leads"
-                    stroke={theme.palette.primary.main}
-                    strokeWidth={2}
-                    activeDot={{ r: 8 }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="waitlist" 
-                    stroke={theme.palette.info.dark} 
-                    strokeWidth={2}
-                    activeDot={{ r: 6 }} 
-                  />
-                  <Line type="monotone" dataKey="demos" stroke={theme.palette.secondary.main} strokeWidth={2} />
-                  <Line type="monotone" dataKey="closed" stroke={theme.palette.success.main} strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <WaitlistSummary />
-        </Grid>
-
-        <Grid item xs={12} md={8}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              height: '100%',
-              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.primary.main, 0.02)} 100%)`,
-              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-              borderRadius: 2,
-            }}
-          >
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Recent Activities
-              </Typography>
-            </Box>
-            <Box>
-              {recentActivities.map((activity, index) => (
-                <ActivityItem key={index} {...activity} />
-              ))}
-            </Box>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Stack spacing={3}>
-            <Paper
+      {/* Main content */}
+      <Grid container spacing={{ xs: 2, md: 3 }}>
+        {/* Main area with charts and activities */}
+        <Grid item xs={12} lg={8}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, md: 3 } }}>
+            {/* Chart card */}
+            <Card
               elevation={0}
               sx={{
-                p: 3,
-                background: `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.02)} 100%)`,
-                border: `1px solid ${alpha(theme.palette.secondary.main, 0.1)}`,
-                borderRadius: 2,
+                borderRadius: 3,
+                border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+                overflow: 'hidden',
+                backgroundColor: colorPalette.cardBg,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+                height: { xs: 'auto', md: '450px' }, // Taller on larger screens
               }}
             >
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                Client Journey Funnel
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                From waitlist to closed deals
-              </Typography>
+              <Box sx={{ borderBottom: 1, borderColor: alpha(theme.palette.divider, 0.1), px: 3, pt: 2 }}>
+                <Tabs 
+                  value={tabValue} 
+                  onChange={handleTabChange}
+                  variant="scrollable"
+                  scrollButtons="auto"
+                  sx={{
+                    '& .MuiTab-root': {
+                      fontWeight: 600,
+                      fontSize: '0.9rem',
+                      textTransform: 'none',
+                      minWidth: { xs: 'auto', sm: 120 },
+                      px: { xs: 2, sm: 3 },
+                    },
+                    '& .Mui-selected': {
+                      color: theme.palette.primary.main,
+                    },
+                    '& .MuiTabs-indicator': {
+                      backgroundColor: theme.palette.primary.main,
+                      height: 3,
+                      borderRadius: '3px 3px 0 0',
+                    }
+                  }}
+                >
+                  <Tab label="Sales Overview" />
+                  <Tab label="Leads" />
+                  <Tab label="Conversions" />
+                </Tabs>
+              </Box>
               
-              {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 220 }}>
-                  <CircularProgress />
-                </Box>
-              ) : (
-                <Box sx={{ height: 220 }}>
+              <CardContent sx={{ 
+                p: { xs: 2, sm: 3 }, 
+                pt: { xs: 2, sm: 2.5 }, 
+                height: { xs: '300px', sm: '350px', md: '400px' },
+              }}>
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                    <CircularProgress size={36} />
+                  </Box>
+                ) : leadData.length === 0 ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                    <Typography color="text.secondary">No data available</Typography>
+                  </Box>
+                ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={conversionData} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                      <XAxis type="number" domain={[0, Math.max(100, waitlistCount + 10)]} />
-                      <YAxis dataKey="name" type="category" width={100} />
-                      <ChartTooltip
-                        formatter={(value) => [`${value} clients`, null]}
+                    <LineChart
+                      data={leadData}
+                      margin={{ top: 20, right: 20, left: -20, bottom: 5 }}
+                    >
+                      <defs>
+                        <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={colorPalette.leads} stopOpacity={0.3} />
+                          <stop offset="95%" stopColor={colorPalette.leads} stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="colorWaitlist" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={colorPalette.waitlist} stopOpacity={0.3} />
+                          <stop offset="95%" stopColor={colorPalette.waitlist} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={colorPalette.chartGrid} />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke={alpha(theme.palette.text.secondary, 0.7)}
+                        tick={{ fontSize: 12 }}
+                        axisLine={{ stroke: colorPalette.chartGrid }}
+                      />
+                      <YAxis 
+                        stroke={alpha(theme.palette.text.secondary, 0.7)} 
+                        tick={{ fontSize: 12 }}
+                        axisLine={{ stroke: colorPalette.chartGrid }}
+                      />
+                      <ChartTooltip 
                         contentStyle={{
-                          borderRadius: 2,
+                          backgroundColor: alpha(colorPalette.cardBg, 0.95),
+                          border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                          borderRadius: 8,
+                          boxShadow: '0 4px 20px rgba(0, 32, 74, 0.1)',
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="leads"
+                        stroke={colorPalette.leads}
+                        strokeWidth={3}
+                        activeDot={{ r: 8 }}
+                        dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: colorPalette.leads }}
+                        name="Leads"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="waitlist" 
+                        stroke={colorPalette.waitlist} 
+                        strokeWidth={3}
+                        activeDot={{ r: 7 }} 
+                        dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: colorPalette.waitlist }}
+                        name="Waitlist"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="demos" 
+                        stroke={colorPalette.demos} 
+                        strokeWidth={3}
+                        dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: colorPalette.demos }}
+                        name="Demos"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="closed" 
+                        stroke={colorPalette.closed} 
+                        strokeWidth={3}
+                        dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: colorPalette.closed }}
+                        name="Closed"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Recent activity and appointments */}
+            <Grid container spacing={{ xs: 2, md: 3 }}>
+              <Grid item xs={12} md={7}>
+                <Card
+                  elevation={0}
+                  sx={{
+                    borderRadius: 3,
+                    border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+                    height: '100%',
+                    backgroundColor: colorPalette.cardBg,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <CardContent sx={{ p: 0, '&:last-child': { pb: 0 }, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{ p: { xs: 2, sm: 3 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        Recent Activities
+                      </Typography>
+                      <Button
+                        endIcon={<ArrowForwardIcon />}
+                        sx={{ 
+                          textTransform: 'none',
+                          color: theme.palette.primary.main,
+                          fontWeight: 600,
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                          }
+                        }}
+                      >
+                        View All
+                      </Button>
+                    </Box>
+                    <Divider sx={{ opacity: 0.5 }} />
+                    <Box sx={{ flexGrow: 1, overflow: 'auto', maxHeight: { xs: '300px', md: 'auto' } }}>
+                      {recentActivities.map((activity, index) => (
+                        <ActivityItem key={index} {...activity} />
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={5}>
+                <Card
+                  elevation={0}
+                  sx={{
+                    borderRadius: 3,
+                    border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+                    height: '100%',
+                    backgroundColor: colorPalette.cardBg,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <CardContent sx={{ p: 0, '&:last-child': { pb: 0 }, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{ p: { xs: 2, sm: 3 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        Upcoming Appointments
+                      </Typography>
+                      <IconButton 
+                        size="small" 
+                        sx={{ 
+                          bgcolor: alpha(theme.palette.primary.main, 0.05),
+                          '&:hover': {
+                            bgcolor: alpha(theme.palette.primary.main, 0.1),
+                          }
+                        }}
+                      >
+                        <MoreVertIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                    <Divider sx={{ opacity: 0.5 }} />
+                    <Box sx={{ flexGrow: 1, overflow: 'auto', maxHeight: { xs: '300px', md: 'auto' } }}>
+                      {upcomingAppointments.map((appointment, index) => (
+                        <Box 
+                          key={index} 
+                          sx={{ 
+                            p: { xs: 1.5, sm: 2 }, 
+                            '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.03) },
+                            borderBottom: index !== upcomingAppointments.length - 1 ? `1px solid ${alpha(theme.palette.divider, 0.08)}` : 'none',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="subtitle2" fontWeight={600}>
+                              {appointment.client}
+                            </Typography>
+                            <Chip 
+                              label={appointment.status} 
+                              size="small"
+                              sx={{ 
+                                borderRadius: 1,
+                                bgcolor: appointment.status === 'confirmed' 
+                                  ? alpha(theme.palette.success.main, 0.1)
+                                  : alpha(theme.palette.warning.main, 0.1),
+                                color: appointment.status === 'confirmed'
+                                  ? theme.palette.success.main
+                                  : theme.palette.warning.main,
+                                height: 20,
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                              }}
+                            />
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography variant="body2" color="text.secondary">
+                                {appointment.type}
+                              </Typography>
+                            </Box>
+                            <Typography variant="body2" color="text.primary" fontWeight={500}>
+                              {appointment.date}, {appointment.time}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          </Box>
+        </Grid>
+
+        {/* Right sidebar with waitlist and other stats */}
+        <Grid item xs={12} lg={4}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, md: 3 } }}>
+            {/* Lead sources */}
+            <Card
+              elevation={0}
+              sx={{
+                borderRadius: 3,
+                border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+                backgroundColor: colorPalette.cardBg,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+              }}
+            >
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                  Lead Sources
+                </Typography>
+                <Box sx={{ height: { xs: '220px', sm: '300px' }, display: 'flex', justifyContent: 'center' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={leadSourceData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={3}
+                        dataKey="value"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {leadSourceData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={pieChartColors[index % pieChartColors.length]} />
+                        ))}
+                      </Pie>
+                      <ChartTooltip 
+                        formatter={(value, name) => [`${value} leads`, name]}
+                        contentStyle={{
+                          borderRadius: 8,
+                          boxShadow: '0 4px 20px rgba(0, 32, 74, 0.1)',
                           border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
                         }}
                       />
-                      <Bar
-                        dataKey="value"
-                        fill={theme.palette.primary.main}
-                        radius={[0, 4, 4, 0]}
-                        background={{ fill: alpha(theme.palette.primary.main, 0.1) }}
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Box>
+              </CardContent>
+            </Card>
+
+            {/* Conversion Funnel Card */}
+            <Card
+              elevation={0}
+              sx={{
+                borderRadius: 3,
+                border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+                backgroundColor: colorPalette.cardBg,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+              }}
+            >
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+                  Conversion Funnel
+                </Typography>
+                <Box sx={{ height: { xs: '220px', sm: '300px' }, display: 'flex', justifyContent: 'center' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      layout="vertical"
+                      data={conversionData}
+                      margin={{ top: 0, right: 20, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke={colorPalette.chartGrid} />
+                      <XAxis type="number" 
+                        stroke={alpha(theme.palette.text.secondary, 0.7)}
+                        tick={{ fontSize: 12 }}
                       />
+                      <YAxis dataKey="name" 
+                        type="category" 
+                        stroke={alpha(theme.palette.text.secondary, 0.7)} 
+                        tick={{ fontSize: 12 }}
+                      />
+                      <ChartTooltip
+                        formatter={(value) => [`${value} leads`]}
+                        contentStyle={{
+                          borderRadius: 8,
+                          boxShadow: '0 4px 20px rgba(0, 32, 74, 0.1)',
+                          border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                        }}
+                      />
+                      <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                        {conversionData.map((entry, index) => {
+                          // Gradient colors from primary to success
+                          const ratio = index / (conversionData.length - 1);
+                          const color = index === 0 ? colorPalette.waitlist :
+                            index === conversionData.length - 1 ? colorPalette.closed :
+                            blend(colorPalette.leads, colorPalette.closed, ratio);
+                          return <Cell key={`cell-${index}`} fill={color} />;
+                        })}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </Box>
-              )}
-            </Paper>
-
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                background: `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.05)} 0%, ${alpha(theme.palette.success.main, 0.02)} 100%)`,
-                border: `1px solid ${alpha(theme.palette.success.main, 0.1)}`,
-                borderRadius: 2,
-              }}
-            >
-              <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-                Team Performance
-              </Typography>
-              <Box>
-                {teamPerformance.map((member, index) => (
-                  <Box key={index} sx={{ mb: 3 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <Avatar
-                        sx={{
-                          width: 32,
-                          height: 32,
-                          mr: 1,
-                          bgcolor: alpha(theme.palette.primary.main, 0.1),
-                          color: theme.palette.primary.main,
-                        }}
-                      >
-                        {member.name[0]}
-                      </Avatar>
-                      <Typography variant="subtitle2" sx={{ flex: 1 }}>
-                        {member.name}
-                      </Typography>
-                      <Chip
-                        label={`${member.conversion}%`}
-                        size="small"
-                        sx={{
-                          bgcolor: alpha(theme.palette.success.main, 0.1),
-                          color: theme.palette.success.main,
-                          fontWeight: 600,
-                        }}
-                      />
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {member.leads} leads
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {member.demos} demos
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={member.conversion}
-                      sx={{
-                        height: 6,
-                        borderRadius: 3,
-                        bgcolor: alpha(theme.palette.primary.main, 0.1),
-                        '& .MuiLinearProgress-bar': {
-                          borderRadius: 3,
-                          bgcolor: theme.palette.success.main,
-                        },
-                      }}
-                    />
-                  </Box>
-                ))}
-              </Box>
-            </Paper>
-          </Stack>
+              </CardContent>
+            </Card>
+          </Box>
         </Grid>
       </Grid>
     </Box>
