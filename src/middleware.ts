@@ -2,16 +2,16 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const user = request.cookies.get('user');
+  const authToken = request.cookies.get('auth_token');
   const isAuthPage = request.nextUrl.pathname.startsWith('/login');
 
   // If user is not logged in and trying to access protected routes
-  if (!user && !isAuthPage) {
+  if (!authToken && !isAuthPage) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // If user is logged in and trying to access auth pages
-  if (user && isAuthPage) {
+  if (authToken && isAuthPage) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
@@ -29,4 +29,4 @@ export const config = {
      */
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
-}; 
+};

@@ -3,11 +3,15 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
+import { login as apiLogin, logout as apiLogout, getProfile, UserProfile } from '../services/authService';
 
 interface User {
+  id: string;
   email: string;
-  role: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  roles: string[];
+  permissions: string[];
 }
 
 interface AuthContextType {
@@ -15,6 +19,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
+  hasPermission: (permission: string) => boolean;
+  hasRole: (role: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,11 +33,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Check for existing user data in cookies
     const userData = Cookies.get('user');
-    if (userData) {
+    const token = Cookies.get('auth_token');
+    
+    if (userData && token) {
       try {
         setUser(JSON.parse(userData));
       } catch (error) {
         console.error('Error parsing user data:', error);
+        Cookies.remove('user');
+        Cookies.remove('auth_token');
       }
     }
     setIsLoading(false);
@@ -39,61 +49,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      // In a real app, this would be an API call
-      // For demo, we'll use the dummy users
-      const DUMMY_USERS = [
-        {
-          email: 'admin@quickbid.co.in',
-          password: 'admin123',
-          role: 'admin',
-          name: 'Admin User',
-        },
-        {
-          email: 'sales@quickbid.co.in',
-          password: 'sales123',
-          role: 'sales',
-          name: 'Sales User',
-        },
-        {
-          email: 'manager@quickbid.co.in',
-          password: 'manager123',
-          role: 'manager',
-          name: 'Manager User',
-        },
-        {
-          email: 'demonstrator@quickbid.co.in',
-          password: 'demo123',
-          role: 'demonstrator',
-          name: 'Demonstrator User',
-        },
-      ];
-
-      const user = DUMMY_USERS.find(
-        (u) => u.email === email && u.password === password
-      );
-
-      if (user) {
-        const { password: _, ...userData } = user;
-        setUser(userData);
-        Cookies.set('user', JSON.stringify(userData));
+      setIsLoading(true);
+      const response = await apiLogin(email, password);
+      
+      if (response.success) {
+        setUser(response.data.user);
         router.push('/dashboard');
       } else {
-        throw new Error('Invalid credentials');
+        throw new Error('Login failed');
       }
     } catch (error) {
       console.error('Login error:', error);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const logout = () => {
+    apiLogout();
     setUser(null);
-    Cookies.remove('user');
     router.push('/login');
   };
 
+  const hasPermission = (permission: string): boolean => {
+    if (!user) return false;
+    return user.permissions.includes(permission);
+  };
+
+  const hasRole = (role: string): boolean => {
+    if (!user) return false;
+    return user.roles.includes(role);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading, hasPermission, hasRole }}>
       {children}
     </AuthContext.Provider>
   );
@@ -105,4 +95,4 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-} 
+}

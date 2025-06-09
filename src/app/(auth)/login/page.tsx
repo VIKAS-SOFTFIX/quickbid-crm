@@ -23,34 +23,6 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
 
-// Dummy users for demo
-const DUMMY_USERS = [
-  {
-    email: 'admin@quickbid.co.in',
-    password: 'admin123',
-    role: 'admin',
-    name: 'Admin User',
-  },
-  {
-    email: 'sales@quickbid.co.in',
-    password: 'sales123',
-    role: 'sales',
-    name: 'Sales User',
-  },
-  {
-    email: 'manager@quickbid.co.in',
-    password: 'manager123',
-    role: 'manager',
-    name: 'Manager User',
-  },
-  {
-    email: 'demonstrator@quickbid.co.in',
-    password: 'demo123',
-    role: 'demonstrator',
-    name: 'Demonstrator User',
-  },
-];
-
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -308,33 +280,6 @@ export default function LoginPage() {
             >
               Sign In
             </Button>
-
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-                Demo Accounts:
-              </Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1 }}>
-                {DUMMY_USERS.map((user) => (
-                  <Button
-                    key={user.email}
-                    variant="outlined"
-                    size="small"
-                    onClick={() => {
-                      setEmail(user.email);
-                      setPassword(user.password);
-                    }}
-                    sx={{
-                      textTransform: 'none',
-                      justifyContent: 'flex-start',
-                      fontSize: '0.8rem',
-                      py: 0.7,
-                    }}
-                  >
-                    {user.role}
-                  </Button>
-                ))}
-              </Box>
-            </Box>
           </Box>
         </Paper>
       </Box>

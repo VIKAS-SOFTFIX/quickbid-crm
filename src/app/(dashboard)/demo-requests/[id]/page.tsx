@@ -81,12 +81,28 @@ import {
   RadioGroup,
   FormControl,
 } from '@mui/material';
+import {
+  DemoRequest as APIDemoRequest,
+  getDemoRequest,
+  updateDemoRequest
+} from '@/services/demoService';
+import {
+  DemoActivity,
+  getDemoActivities,
+  addDemoNote,
+  scheduleFollowUp,
+  addMeetingLink,
+  completeDemoActivity
+} from '@/services/demoActivityService';
+
+// Add the BASE_URL constant
+const BASE_URL = 'http://localhost:7505';
 
 interface TimelineEvent {
   id: string;
   date: string;
   time: string;
-  type: 'demo' | 'note' | 'status_change' | 'follow_up';
+  type: string;
   description: string;
   user: string;
 }
@@ -96,20 +112,24 @@ interface DemoRequest {
   status: 'pending' | 'scheduled' | 'completed' | 'cancelled' | 'rejected';
   date: string;
   time: string;
+  preferredDate: string;
   preferredTime: string;
-  leadName: string;
-  companyName: string;
-  contactPhone: string;
-  whatsappNumber?: string;
-  reason: string;
-  urgency: 'low' | 'medium' | 'high';
-  notes: string;
-  assignedTo?: {
-    name: string;
-    phone: string;
-  };
+  name: string;
+  email: string;
+  mobile: string;
+  businessName: string;
+  notes?: string;
+  requirements?: string;
+  interestedIn?: string;
+  services?: string[];
+  industry?: string;
+  priority: 'high' | 'medium' | 'low';
+  assignedTo?: string;
+  assignedAgentName?: string;
   followUpDate?: string;
   timeline: TimelineEvent[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface DemoResource {
@@ -123,126 +143,12 @@ interface DemoResource {
   isDefault: boolean;
 }
 
-const mockDemoRequest: DemoRequest = {
-  id: '1',
-  status: 'scheduled',
-  date: '2024-03-25',
-  time: '10:00',
-  preferredTime: 'After 2 PM',
-  leadName: 'John Doe',
-  companyName: 'Tech Solutions Inc.',
-  contactPhone: '+91 9876543210',
-  whatsappNumber: '+91 9876543210',
-  reason: 'Interested in QuickBid enterprise features',
-  urgency: 'high',
-  notes: 'Prospect has immediate requirement for tender management solution',
-  assignedTo: {
-    name: 'Rajesh Kumar',
-    phone: '+91 9876543211',
-  },
-  followUpDate: '2024-03-26',
-  timeline: [
-    {
-      id: '1',
-      date: '2024-03-25',
-      time: '10:00',
-      type: 'demo',
-      description: 'Initial demo scheduled',
-      user: 'Rajesh Kumar',
-    },
-    {
-      id: '2',
-      date: '2024-03-25',
-      time: '14:30',
-      type: 'note',
-      description: 'Prepared demo script for enterprise features',
-      user: 'Rajesh Kumar',
-    },
-    {
-      id: '3',
-      date: '2024-03-26',
-      time: '09:15',
-      type: 'status_change',
-      description: 'Status changed to Scheduled',
-      user: 'Rajesh Kumar',
-    },
-    {
-      id: '4',
-      date: '2024-03-26',
-      time: '11:00',
-      type: 'follow_up',
-      description: 'Follow-up demo scheduled for tomorrow',
-      user: 'Rajesh Kumar',
-    },
-  ],
-};
-
-const mockDemoResources: DemoResource[] = [
-  {
-    id: '1',
-    name: 'Product Demo Script',
-    type: 'docx',
-    size: '568 KB',
-    url: '/resources/product-demo-script.docx',
-    category: 'script',
-    lastUpdated: '2024-03-23',
-    isDefault: true,
-  },
-  {
-    id: '2',
-    name: 'Enterprise Features Guide',
-    type: 'pdf',
-    size: '1.8 MB',
-    url: '/resources/enterprise-features-guide.pdf',
-    category: 'guide',
-    lastUpdated: '2024-03-15',
-    isDefault: true,
-  },
-  {
-    id: '3',
-    name: 'Product Presentation',
-    type: 'pptx',
-    size: '2.5 MB', 
-    url: '/resources/product-presentation.pptx',
-    category: 'presentation',
-    lastUpdated: '2024-03-20',
-    isDefault: true,
-  },
-  {
-    id: '4',
-    name: 'Technical Demo Script',
-    type: 'docx',
-    size: '720 KB',
-    url: '/resources/tech-demo-script.docx',
-    category: 'script',
-    lastUpdated: '2024-03-22',
-    isDefault: false,
-  },
-  {
-    id: '5',
-    name: 'Basic Features Video',
-    type: 'video',
-    url: 'https://example.com/videos/basic-features',
-    category: 'video',
-    lastUpdated: '2024-03-10',
-    isDefault: false,
-  },
-  {
-    id: '6',
-    name: 'Integration Guide',
-    type: 'pdf',
-    size: '3.2 MB',
-    url: '/resources/integration-guide.pdf',
-    category: 'guide',
-    lastUpdated: '2024-03-18',
-    isDefault: false,
-  },
-];
 
 export default function DemoDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const [demoRequest, setDemoRequest] = useState<DemoRequest | null>(null);
+  const [activities, setActivities] = useState<DemoActivity[]>([]);
   const [openEdit, setOpenEdit] = useState(false);
   const [editNotes, setEditNotes] = useState('');
   const [openFollowUp, setOpenFollowUp] = useState(false);
@@ -270,23 +176,180 @@ export default function DemoDetailPage() {
   const [sendResourcesDialogOpen, setSendResourcesDialogOpen] = useState(false);
   const [resourcesToSend, setResourcesToSend] = useState<string[]>([]);
   const [sendMethod, setSendMethod] = useState<'email' | 'whatsapp'>('email');
+  const [meetingLinkDialogOpen, setMeetingLinkDialogOpen] = useState(false);
+  const [meetingLink, setMeetingLink] = useState('');
 
   useEffect(() => {
-    // Simulate API loading
-    const timer = setTimeout(() => {
-    setDemoRequest(mockDemoRequest);
-      setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [id]);
+    // Fetch demo request and activities from API
+    const fetchDemoData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch demo request details
+        const demoResponse = await getDemoRequest(id as string);
+        console.log('Demo request response:', demoResponse);
+        
+        // First fetch activities separately to ensure we have them
+        console.log('Fetching activities for demo ID:', id);
+        const activitiesResponse = await getDemoActivities(id as string);
+        console.log('Activities response raw:', activitiesResponse);
+        
+        // Handle different response formats - API might return array directly or {success, data} object
+        let activities: DemoActivity[] = [];
+        
+        if (Array.isArray(activitiesResponse)) {
+          // API returned array directly
+          activities = activitiesResponse;
+          console.log(`Detected direct array response with ${activities.length} activities`);
+        } else if (activitiesResponse && activitiesResponse.success && Array.isArray(activitiesResponse.data)) {
+          // API returned {success: true, data: [...]} format
+          activities = activitiesResponse.data;
+          console.log(`Detected success/data object response with ${activities.length} activities`);
+        } else {
+          console.warn('Unable to parse activities response:', activitiesResponse);
+        }
+        
+        // Only proceed if we have activities
+        if (activities.length > 0) {
+          console.log(`${activities.length} activities found:`, activities);
+          
+          // Set activities to state first
+          setActivities(activities);
+          
+          // Create timeline events explicitly
+          const timelineEvents: TimelineEvent[] = [];
+          
+          // Process each activity
+          activities.forEach(activity => {
+            try {
+              console.log('Processing activity:', activity);
+              
+              // Format date and time
+              const date = new Date(activity.performedAt);
+              const formattedDate = date.toISOString().split('T')[0];
+              const formattedTime = date.toLocaleTimeString();
+              
+              // Create timeline event
+              const event: TimelineEvent = {
+                id: activity._id,
+                date: formattedDate,
+                time: formattedTime,
+                type: activity.action,
+                description: activity.description,
+                user: activity.performedBy
+              };
+              
+              console.log('Created timeline event:', event);
+              timelineEvents.push(event);
+            } catch (err) {
+              console.error('Error processing activity:', activity, err);
+            }
+          });
+          
+          console.log(`${timelineEvents.length} timeline events created:`, timelineEvents);
+          
+          // Sort by most recent first
+          timelineEvents.sort((a, b) => {
+            const dateA = new Date(`${a.date}T${a.time}`).getTime();
+            const dateB = new Date(`${b.date}T${b.time}`).getTime();
+            return dateB - dateA;
+          });
+          
+          if (demoResponse && demoResponse.success && demoResponse.data) {
+            // Convert API model to UI model
+            const demo = demoResponse.data;
+            
+            // Format date for display
+            const formattedDate = demo.preferredDate ? 
+              new Date(demo.preferredDate).toISOString().split('T')[0] : 
+              new Date().toISOString().split('T')[0];
+            
+            // Create the UI model with timeline events
+            const uiDemo: DemoRequest = {
+              id: demo.id,
+              status: demo.status,
+              date: formattedDate,
+              time: demo.preferredTime,
+              preferredDate: formattedDate,
+              preferredTime: demo.preferredTime,
+              name: demo.name,
+              email: demo.email,
+              mobile: demo.mobile,
+              businessName: demo.businessName,
+              notes: demo.notes,
+              requirements: demo.requirements,
+              interestedIn: demo.interestedIn,
+              services: demo.services,
+              industry: demo.industry,
+              priority: demo.priority,
+              assignedTo: demo.assignedTo,
+              assignedAgentName: demo.assignedAgentName,
+              timeline: timelineEvents, // Add the timeline events here
+              createdAt: demo.createdAt,
+              updatedAt: demo.updatedAt
+            };
+            
+            console.log('Setting demo request with timeline:', uiDemo);
+            setDemoRequest(uiDemo);
+          } else {
+            console.warn('Invalid demo request data or demo not found');
+          }
+        } else {
+          console.warn('No activities found in the response');
+          
+          // Still set the demo data even if no activities
+          if (demoResponse && demoResponse.success && demoResponse.data) {
+            const demo = demoResponse.data;
+            
+            // Format date for display
+            const formattedDate = demo.preferredDate ? 
+              new Date(demo.preferredDate).toISOString().split('T')[0] : 
+              new Date().toISOString().split('T')[0];
+            
+            // Create the UI model without timeline events
+            const uiDemo: DemoRequest = {
+              id: demo.id,
+              status: demo.status,
+              date: formattedDate,
+              time: demo.preferredTime,
+              preferredDate: formattedDate,
+              preferredTime: demo.preferredTime,
+              name: demo.name,
+              email: demo.email,
+              mobile: demo.mobile,
+              businessName: demo.businessName,
+              notes: demo.notes,
+              requirements: demo.requirements,
+              interestedIn: demo.interestedIn,
+              services: demo.services,
+              industry: demo.industry,
+              priority: demo.priority,
+              assignedTo: demo.assignedTo,
+              assignedAgentName: demo.assignedAgentName,
+              timeline: [], // Empty timeline
+              createdAt: demo.createdAt,
+              updatedAt: demo.updatedAt
+            };
+            
+            setDemoRequest(uiDemo);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching demo data:', error);
+        setSnackbar({
+          open: true,
+          message: 'Error loading demo details',
+          severity: 'error',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  useEffect(() => {
-    if (demoRequest) {
-      // In a real application, we would fetch the selected resources for this demo
-      // For now, let's use the default resources from mock admin settings
-      setResources(mockDemoResources.filter(resource => resource.isDefault));
+    if (id) {
+      fetchDemoData();
     }
-  }, [demoRequest]);
+  }, [id]);
 
   const handleOpenEdit = () => {
     setEditNotes(demoRequest?.notes || '');
@@ -297,35 +360,87 @@ export default function DemoDetailPage() {
     setOpenEdit(false);
   };
 
-  const handleSaveNotes = () => {
+  // Helper function to convert activity to timeline event
+  const createTimelineEventFromActivity = (activity: DemoActivity): TimelineEvent => {
+    const date = new Date(activity.performedAt);
+    return {
+      id: activity._id,
+      date: date.toISOString().split('T')[0],
+      time: date.toLocaleTimeString(),
+      type: activity.action,
+      description: activity.description,
+      user: activity.performedBy
+    };
+  };
+
+  // Update handleSaveNotes to use the helper function
+  const handleSaveNotes = async () => {
     setSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-    if (demoRequest) {
-        const newEvent: TimelineEvent = {
-          id: Date.now().toString(),
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toLocaleTimeString(),
-          type: 'note',
-          description: 'Notes updated',
-          user: 'Rajesh Kumar', // In real app, use actual user
-        };
-
-        setDemoRequest({
-          ...demoRequest,
-          notes: editNotes,
-          timeline: [newEvent, ...demoRequest.timeline],
+    
+    try {
+      if (demoRequest) {
+        // First update the demo request with new notes
+        const updateResponse = await updateDemoRequest(demoRequest.id, {
+          notes: editNotes
         });
-
-        setSnackbar({
-          open: true,
-          message: 'Notes updated successfully',
-          severity: 'success',
-        });
+        
+        // Then create an activity record for the note
+        const activityResponse = await addDemoNote(
+          demoRequest.id,
+          editNotes,
+          demoRequest.assignedTo || 'system', // Use assigned agent or system as performer
+          demoRequest.priority
+        );
+        
+        console.log('Note update response:', updateResponse);
+        console.log('Activity response:', activityResponse);
+        
+        if (updateResponse.success && activityResponse.success) {
+          // Get the created activity
+          const newActivity = activityResponse.data;
+          
+          // Add to activities list
+          setActivities(prev => [newActivity, ...prev]);
+          
+          // Create a new timeline event from the activity
+          const newEvent = createTimelineEventFromActivity(newActivity);
+          console.log('Created new timeline event:', newEvent);
+          
+          // Update the demo request in state
+          setDemoRequest(prev => {
+            if (!prev) return null;
+            
+            // Create a new object with updated timeline
+            const updatedDemo = {
+              ...prev,
+              notes: editNotes,
+              timeline: [newEvent, ...prev.timeline]
+            };
+            
+            console.log('Updated demo with new timeline:', updatedDemo.timeline);
+            return updatedDemo;
+          });
+          
+          setSnackbar({
+            open: true,
+            message: 'Notes updated successfully',
+            severity: 'success',
+          });
+        } else {
+          throw new Error('Failed to update notes or create activity');
+        }
       }
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error updating notes',
+        severity: 'error',
+      });
+    } finally {
       setSubmitting(false);
-    handleCloseEdit();
-    }, 800);
+      handleCloseEdit();
+    }
   };
 
   const handleOpenFollowUp = () => {
@@ -338,35 +453,76 @@ export default function DemoDetailPage() {
     setFollowUpNotes('');
   };
 
-  const handleAddFollowUp = () => {
+  // Update handleAddFollowUp to use the helper function
+  const handleAddFollowUp = async () => {
     setSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
       if (demoRequest && followUpDate) {
-        const newEvent: TimelineEvent = {
-          id: Date.now().toString(),
-          date: followUpDate,
-          time: new Date().toLocaleTimeString(),
-          type: 'follow_up',
-          description: followUpNotes || 'Follow-up scheduled',
-          user: 'Rajesh Kumar', // In real app, use actual user
-        };
-        setDemoRequest({
-          ...demoRequest,
-          timeline: [newEvent, ...demoRequest.timeline],
-          followUpDate: followUpDate,
-        });
+        // Format the follow-up date for the API
+        const formattedFollowUpDate = `${followUpDate}T10:00:00.000Z`;
         
-        setSnackbar({
-          open: true,
-          message: 'Follow-up scheduled successfully',
-          severity: 'success',
-        });
+        // Create the description for the activity
+        const description = followUpNotes || 'Follow-up scheduled';
         
-        handleCloseFollowUp();
+        // Create an activity record for the follow-up
+        const activityResponse = await scheduleFollowUp(
+          demoRequest.id,
+          formattedFollowUpDate,
+          description,
+          demoRequest.assignedTo || 'system', // Use assigned agent or system as performer
+          demoRequest.priority
+        );
+        
+        console.log('Follow-up activity response:', activityResponse);
+        
+        if (activityResponse.success) {
+          // Get the created activity
+          const newActivity = activityResponse.data;
+          
+          // Add to activities list
+          setActivities(prev => [newActivity, ...prev]);
+          
+          // Create a new timeline event from the activity
+          const newEvent = createTimelineEventFromActivity(newActivity);
+          console.log('Created new follow-up timeline event:', newEvent);
+          
+          // Update the demo request in state
+          setDemoRequest(prev => {
+            if (!prev) return null;
+            
+            // Create a new object with updated timeline
+            const updatedDemo = {
+              ...prev,
+              followUpDate: followUpDate,
+              timeline: [newEvent, ...prev.timeline]
+            };
+            
+            console.log('Updated demo with new follow-up timeline:', updatedDemo.timeline);
+            return updatedDemo;
+          });
+          
+          setSnackbar({
+            open: true,
+            message: 'Follow-up scheduled successfully',
+            severity: 'success',
+          });
+          
+          handleCloseFollowUp();
+        } else {
+          throw new Error('Failed to schedule follow-up');
+        }
       }
+    } catch (error) {
+      console.error('Error scheduling follow-up:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error scheduling follow-up',
+        severity: 'error',
+      });
+    } finally {
       setSubmitting(false);
-    }, 800);
+    }
   };
 
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -397,25 +553,117 @@ export default function DemoDetailPage() {
     });
   };
 
-  const handleUpdateStatus = (status: DemoRequest['status']) => {
+  const handleUpdateStatus = async (status: DemoRequest['status']) => {
     setSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
       if (demoRequest) {
-        const newEvent: TimelineEvent = {
-          id: Date.now().toString(),
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toLocaleTimeString(),
-          type: 'status_change',
-          description: `Status changed to ${status}`,
-          user: 'Rajesh Kumar', // In real app, use actual user
-        };
-        
-        setDemoRequest({
-          ...demoRequest,
-          status,
-          timeline: [newEvent, ...demoRequest.timeline],
+        // Update the demo status in the API
+        const updateResponse = await updateDemoRequest(demoRequest.id, {
+          status
         });
+        
+        console.log('Status update response:', updateResponse);
+        
+        // Determine the activity type based on the new status
+        let action = 'status_change';
+        let description = `Status changed from ${demoRequest.status} to ${status}`;
+        
+        // If status is completed, use the demo_completed action
+        if (status === 'completed') {
+          action = 'demo_completed';
+          description = 'Demo marked as completed';
+          
+          // Call the completeDemoActivity function
+          const activityResponse = await completeDemoActivity(
+            demoRequest.id,
+            'Demo completed successfully',
+            demoRequest.assignedTo || 'system',
+            demoRequest.priority
+          );
+          
+          console.log('Complete demo activity response:', activityResponse);
+          
+          if (activityResponse.success) {
+            // Get the created activity
+            const newActivity = activityResponse.data;
+            
+            // Add to activities list
+            setActivities(prev => [newActivity, ...prev]);
+            
+            // Create a new timeline event from the activity
+            const newEvent = createTimelineEventFromActivity(newActivity);
+            console.log('Created new status timeline event:', newEvent);
+            
+            // Update the demo request in state
+            setDemoRequest(prev => {
+              if (!prev) return null;
+              
+              // Create a new object with updated timeline
+              const updatedDemo = {
+                ...prev,
+                status,
+                timeline: [newEvent, ...prev.timeline]
+              };
+              
+              console.log('Updated demo with new status timeline:', updatedDemo.timeline);
+              return updatedDemo;
+            });
+          }
+        } else {
+          // For other status changes, create a generic status_change activity
+          const activityData = {
+            demoId: demoRequest.id,
+            action,
+            description,
+            performedBy: demoRequest.assignedTo || 'system',
+            priority: demoRequest.priority,
+            details: {
+              field: 'status',
+              oldValue: demoRequest.status,
+              newValue: status
+            }
+          };
+          
+          // Use the post method directly as we don't have a specific function for this
+          const response = await fetch(`${BASE_URL}/api/demo-activities/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(activityData),
+          });
+          
+          const activityResponse = await response.json();
+          console.log('Status change activity response:', activityResponse);
+          
+          if (activityResponse.success) {
+            // Get the created activity
+            const newActivity = activityResponse.data;
+            
+            // Add to activities list
+            setActivities(prev => [newActivity, ...prev]);
+            
+            // Create a new timeline event from the activity
+            const newEvent = createTimelineEventFromActivity(newActivity);
+            console.log('Created new status timeline event:', newEvent);
+            
+            // Update the demo request in state
+            setDemoRequest(prev => {
+              if (!prev) return null;
+              
+              // Create a new object with updated timeline
+              const updatedDemo = {
+                ...prev,
+                status,
+                timeline: [newEvent, ...prev.timeline]
+              };
+              
+              console.log('Updated demo with new status timeline:', updatedDemo.timeline);
+              return updatedDemo;
+            });
+          }
+        }
         
         setSnackbar({
           open: true,
@@ -423,30 +671,70 @@ export default function DemoDetailPage() {
           severity: 'success',
         });
       }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error updating status',
+        severity: 'error',
+      });
+    } finally {
       setSubmitting(false);
       handleCloseMenu();
-    }, 800);
+    }
   };
 
-  const getTimelineIcon = (type: TimelineEvent['type']) => {
-    switch (type) {
-      case 'demo':
-        return <VideoCallIcon />;
-      case 'note':
-        return <NoteIcon />;
-      case 'status_change':
-        return <PriorityHighIcon />;
-      case 'follow_up':
-        return <ScheduleIcon />;
-      default:
-        return <HistoryIcon />;
+  const getTimelineIcon = (type: string) => {
+    const actionType = type.toLowerCase();
+    
+    if (actionType.includes('demo_booked') || actionType.includes('demo_scheduled')) {
+      return <VideoCallIcon />;
+    } else if (actionType.includes('note')) {
+      return <NoteIcon />;
+    } else if (actionType.includes('demo_completed') || actionType.includes('status')) {
+      return <PriorityHighIcon />;
+    } else if (actionType.includes('follow_up')) {
+      return <ScheduleIcon />;
+    } else if (actionType.includes('agent')) {
+      return <PersonIcon />;
+    } else if (actionType.includes('meeting') || actionType.includes('link')) {
+      return <LinkIcon />;
+    } else {
+      console.log('Unknown timeline event type:', type);
+      return <HistoryIcon />;
     }
   };
 
   const filteredTimeline = demoRequest?.timeline.filter(event => {
     if (!timelineFilter) return true;
-    return event.type.includes(timelineFilter);
+    
+    // Make filtering more flexible by checking multiple fields
+    return (
+      event.type.toLowerCase().includes(timelineFilter.toLowerCase()) ||
+      event.description.toLowerCase().includes(timelineFilter.toLowerCase()) ||
+      event.user.toLowerCase().includes(timelineFilter.toLowerCase())
+    );
   }) || [];
+
+  // Add a useEffect to log timeline changes for debugging
+  useEffect(() => {
+    if (demoRequest?.timeline) {
+      console.log('Current timeline in state:', demoRequest.timeline);
+      console.log('Filtered timeline:', filteredTimeline);
+      console.log('Timeline length:', demoRequest.timeline.length);
+      
+      // Debug any potential issues with timeline data
+      if (demoRequest.timeline.length === 0) {
+        console.warn('Timeline is empty! Check if activities were properly converted to timeline events.');
+      } else if (filteredTimeline.length === 0 && timelineFilter) {
+        console.warn(`No timeline events match the filter "${timelineFilter}".`);
+      } else if (filteredTimeline.length === 0) {
+        console.warn('Filtered timeline is empty but no filter is applied. Check rendering logic.');
+      }
+    } else {
+      console.warn('Timeline is undefined or null in demoRequest state!');
+    }
+  }, [demoRequest?.timeline, filteredTimeline, timelineFilter]);
 
   const getStatusColor = (status: DemoRequest['status']) => {
     switch (status) {
@@ -464,7 +752,7 @@ export default function DemoDetailPage() {
     }
   };
 
-  const getUrgencyColor = (urgency: DemoRequest['urgency']) => {
+  const getUrgencyColor = (urgency: DemoRequest['priority']) => {
     switch (urgency) {
       case 'low':
         return theme.palette.info.main;
@@ -496,29 +784,6 @@ export default function DemoDetailPage() {
     });
   };
 
-  const handleSaveResources = () => {
-    setAdminResourcesLoading(true);
-
-    // Simulate API call to save selected resources
-    setTimeout(() => {
-      // Update the resources based on selection
-      const newResources = mockDemoResources.filter(resource => 
-        selectedResources.includes(resource.id)
-      );
-      
-      setResources(newResources);
-      
-      setSnackbar({
-        open: true,
-        message: 'Demo resources updated successfully',
-        severity: 'success',
-      });
-      
-      setAdminResourcesLoading(false);
-      handleCloseResourceDialog();
-    }, 800);
-  };
-
   const getResourceIcon = (type: DemoResource['type']) => {
     switch (type) {
       case 'pdf':
@@ -537,7 +802,7 @@ export default function DemoDetailPage() {
   };
 
   const handleOpenWhatsappDialog = () => {
-    setWhatsappNumber(demoRequest?.whatsappNumber || demoRequest?.contactPhone || '');
+    setWhatsappNumber(demoRequest?.mobile || demoRequest?.mobile || '');
     setWhatsappDialogOpen(true);
   };
 
@@ -545,35 +810,96 @@ export default function DemoDetailPage() {
     setWhatsappDialogOpen(false);
   };
 
-  const handleSaveWhatsappNumber = () => {
+  const handleSaveWhatsappNumber = async () => {
     setSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
       if (demoRequest) {
-        const newEvent: TimelineEvent = {
-          id: Date.now().toString(),
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toLocaleTimeString(),
-          type: 'note',
-          description: 'WhatsApp number updated',
-          user: 'Rajesh Kumar', // In real app, use actual user
-        };
-
-        setDemoRequest({
-          ...demoRequest,
-          whatsappNumber: whatsappNumber,
-          timeline: [newEvent, ...demoRequest.timeline],
+        // Update the demo request with new mobile number
+        const updateResponse = await updateDemoRequest(demoRequest.id, {
+          mobile: whatsappNumber
         });
-
-        setSnackbar({
-          open: true,
-          message: 'WhatsApp number updated successfully',
-          severity: 'success',
-        });
+        
+        console.log('Mobile number update response:', updateResponse);
+        
+        if (updateResponse.success) {
+          // Create an activity for the mobile update
+          const activityData = {
+            demoId: demoRequest.id,
+            action: 'contact_updated',
+            description: 'Mobile number updated',
+            performedBy: demoRequest.assignedTo || 'system',
+            priority: demoRequest.priority,
+            details: {
+              field: 'mobile',
+              oldValue: demoRequest.mobile,
+              newValue: whatsappNumber
+            }
+          };
+          
+          // Use fetch to create an activity
+          const response = await fetch(`${BASE_URL}/api/demo-activities/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(activityData),
+          });
+          
+          const activityResponse = await response.json();
+          console.log('Mobile update activity response:', activityResponse);
+          
+          if (activityResponse.success) {
+            // Get the created activity
+            const newActivity = activityResponse.data;
+            
+            // Add to activities list
+            setActivities(prev => [newActivity, ...prev]);
+            
+            // Create a new timeline event from the activity
+            const date = new Date(newActivity.performedAt);
+            const newEvent: TimelineEvent = {
+              id: newActivity._id,
+              date: date.toISOString().split('T')[0],
+              time: date.toLocaleTimeString(),
+              type: newActivity.action,
+              description: newActivity.description,
+              user: newActivity.performedBy
+            };
+            
+            // Update the demo request in state
+            setDemoRequest(prev => {
+              if (!prev) return null;
+              
+              return {
+                ...prev,
+                mobile: whatsappNumber,
+                timeline: [newEvent, ...prev.timeline]
+              };
+            });
+          }
+          
+          setSnackbar({
+            open: true,
+            message: 'Mobile number updated successfully',
+            severity: 'success',
+          });
+          
+          handleCloseWhatsappDialog();
+        } else {
+          throw new Error('Failed to update mobile number');
+        }
       }
+    } catch (error) {
+      console.error('Error updating mobile number:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error updating mobile number',
+        severity: 'error',
+      });
+    } finally {
       setSubmitting(false);
-      handleCloseWhatsappDialog();
-    }, 800);
+    }
   };
 
   const handleOpenSendResourcesDialog = () => {
@@ -623,6 +949,79 @@ export default function DemoDetailPage() {
         return [...prev, resourceId];
       }
     });
+  };
+
+  const handleOpenMeetingLinkDialog = () => {
+    setMeetingLink('');
+    setMeetingLinkDialogOpen(true);
+  };
+
+  const handleCloseMeetingLinkDialog = () => {
+    setMeetingLinkDialogOpen(false);
+  };
+
+  // Update handleSaveMeetingLink to use the helper function
+  const handleSaveMeetingLink = async () => {
+    setSubmitting(true);
+    
+    try {
+      if (demoRequest && meetingLink) {
+        // Call the addMeetingLink function
+        const activityResponse = await addMeetingLink(
+          demoRequest.id,
+          meetingLink,
+          demoRequest.assignedTo || 'system',
+          demoRequest.priority
+        );
+        
+        console.log('Meeting link activity response:', activityResponse);
+        
+        if (activityResponse.success) {
+          // Get the created activity
+          const newActivity = activityResponse.data;
+          
+          // Add to activities list
+          setActivities(prev => [newActivity, ...prev]);
+          
+          // Create a new timeline event from the activity
+          const newEvent = createTimelineEventFromActivity(newActivity);
+          console.log('Created new meeting link timeline event:', newEvent);
+          
+          // Update the demo request in state
+          setDemoRequest(prev => {
+            if (!prev) return null;
+            
+            // Create a new object with updated timeline
+            const updatedDemo = {
+              ...prev,
+              timeline: [newEvent, ...prev.timeline]
+            };
+            
+            console.log('Updated demo with new meeting link timeline:', updatedDemo.timeline);
+            return updatedDemo;
+          });
+          
+          setSnackbar({
+            open: true,
+            message: 'Meeting link added successfully',
+            severity: 'success',
+          });
+          
+          handleCloseMeetingLinkDialog();
+        } else {
+          throw new Error('Failed to add meeting link');
+        }
+      }
+    } catch (error) {
+      console.error('Error adding meeting link:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error adding meeting link',
+        severity: 'error',
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -692,7 +1091,7 @@ export default function DemoDetailPage() {
                   />
                   <Chip
                     icon={<PriorityHighIcon />}
-                    label={demoRequest.urgency}
+                    label={demoRequest.priority}
                     color="default"
                     sx={{ 
                       backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -702,7 +1101,7 @@ export default function DemoDetailPage() {
                   />
                 </Box>
                 <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-                  {demoRequest.reason}
+                  {demoRequest.interestedIn}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={4}>
@@ -762,7 +1161,11 @@ export default function DemoDetailPage() {
         <Tab label="Details" />
         <Tab 
           label={
-            <Badge badgeContent={filteredTimeline.length} color="primary">
+            <Badge 
+              badgeContent={demoRequest?.timeline.length || 0} 
+              color="primary"
+              showZero={false}
+            >
               Timeline
             </Badge>
           } 
@@ -782,11 +1185,11 @@ export default function DemoDetailPage() {
                       <PersonIcon />
                     </Avatar>
                     <Box>
-                      <Typography variant="h6">{demoRequest.leadName}</Typography>
+                      <Typography variant="h6">{demoRequest.name}</Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <BusinessIcon fontSize="small" color="action" />
                         <Typography variant="body2" color="text.secondary">
-                          {demoRequest.companyName}
+                          {demoRequest.businessName}
             </Typography>
                       </Box>
                     </Box>
@@ -797,12 +1200,12 @@ export default function DemoDetailPage() {
                       ref={phoneRef}
                     >
                       <PhoneIcon color="primary" />
-                      <Typography variant="body2">{demoRequest.contactPhone}</Typography>
+                      <Typography variant="body2">{demoRequest.mobile}</Typography>
                       <Tooltip title="Copy phone number">
                         <IconButton 
                           size="small"
                           onClick={() => handleCopyToClipboard(
-                            demoRequest.contactPhone,
+                            demoRequest.mobile,
                             'Phone number copied to clipboard'
                           )}
                         >
@@ -810,15 +1213,15 @@ export default function DemoDetailPage() {
                         </IconButton>
                       </Tooltip>
                     </Box>
-                    {demoRequest.whatsappNumber && (
+                    {demoRequest.mobile && (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <WhatsAppIcon color="success" />
-                        <Typography variant="body2">{demoRequest.whatsappNumber}</Typography>
+                        <Typography variant="body2">{demoRequest.mobile}</Typography>
                         <Tooltip title="Copy WhatsApp number">
                           <IconButton 
                             size="small"
                             onClick={() => handleCopyToClipboard(
-                              demoRequest.whatsappNumber || '',
+                              demoRequest.mobile || '',
                               'WhatsApp number copied to clipboard'
                             )}
                           >
@@ -904,135 +1307,39 @@ export default function DemoDetailPage() {
               </Card>
             </Grow>
 
-            {/* Notes Section */}
-            <Grow in={true} timeout={1000}>
+            {/* Notes Card */}
+            <Grow in={true} timeout={900}>
               <Card sx={{ mb: 3 }}>
                 <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6">Notes & Requirements</Typography>
-                    <IconButton size="small" onClick={handleOpenEdit}>
-                      <EditIcon />
-                    </IconButton>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <Typography variant="h6" gutterBottom>
+                      Notes
+                    </Typography>
+                    <Button
+                      startIcon={<EditIcon />}
+                      size="small"
+                      onClick={handleOpenEdit}
+                    >
+                      Edit
+                    </Button>
                   </Box>
-                  <Typography variant="body1">{demoRequest.notes}</Typography>
-                  {demoRequest.followUpDate && (
-                    <>
-                      <Divider sx={{ my: 2 }} />
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <ScheduleIcon color="warning" />
-                        <Typography variant="subtitle2" color="warning.main">
-                          Follow-up: {demoRequest.followUpDate}
-                </Typography>
-                      </Box>
-                    </>
-                  )}
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {demoRequest.notes || 'No notes added yet.'}
+                  </Typography>
                 </CardContent>
               </Card>
             </Grow>
 
-            {/* Resources Section */}
-            <Grow in={true} timeout={1200}>
+            {/* Requirements Card */}
+            <Grow in={true} timeout={1000}>
               <Card>
                 <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6">Demo Resources</Typography>
-                    {userRole === 'admin' && (
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<EditIcon />}
-                        onClick={handleOpenResourceDialog}
-                      >
-                        Manage Resources
-                      </Button>
-                    )}
-                  </Box>
-                  
-                  {resources.length === 0 ? (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        No resources assigned to this demo yet.
-            </Typography>
-                      {userRole === 'admin' && (
-                        <Button
-                          variant="outlined"
-                          startIcon={<AddIcon />}
-                          onClick={handleOpenResourceDialog}
-                          sx={{ mt: 2 }}
-                        >
-                          Add Resources
-                        </Button>
-                      )}
-                    </Box>
-                  ) : (
-            <List>
-                      {resources.map((resource) => (
-                        <React.Fragment key={resource.id}>
-                          <ListItem component={Box}>
-                  <ListItemIcon>
-                              {getResourceIcon(resource.type)}
-                  </ListItemIcon>
-                  <ListItemText
-                              primary={resource.name} 
-                              secondary={`${resource.type.toUpperCase()} ${resource.size ? `• ${resource.size}` : ''} • Last updated ${new Date(resource.lastUpdated).toLocaleDateString()}`}
-                            />
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                              {resource.category === 'script' && (
-                                <Chip
-                                  size="small"
-                                  label="Script"
-                                  color="primary"
-                                  sx={{ mr: 1 }}
-                                />
-                              )}
-                              <Tooltip title={`Open ${resource.name}`}>
-                                <IconButton 
-                                  size="small"
-                                  onClick={() => {
-                                    setSnackbar({
-                                      open: true,
-                                      message: `Opening ${resource.name}...`,
-                                      severity: 'info',
-                                    });
-                                  }}
-                                  sx={{ color: 
-                                    resource.type === 'pdf' ? '#ff5252' :
-                                    resource.type === 'docx' ? '#5c6bc0' :
-                                    resource.type === 'pptx' ? '#ff8f00' :
-                                    resource.type === 'video' ? '#d81b60' :
-                                    theme.palette.primary.main
-                                  }}
-                                >
-                                  {resource.type === 'pdf' ? <PictureAsPdfIcon /> :
-                                    resource.type === 'docx' ? <DescriptionIcon /> :
-                                    resource.type === 'pptx' ? <SlideshowIcon /> :
-                                    resource.type === 'video' ? <OndemandVideoIcon /> :
-                                    resource.type === 'link' ? <LinkIcon /> :
-                                    <InsertDriveFileIcon />
-                                  }
-                    </IconButton>
-                              </Tooltip>
-                              <Tooltip title={`Download ${resource.name}`}>
-                                <IconButton 
-                                  size="small"
-                                  onClick={() => {
-                                    setSnackbar({
-                                      open: true,
-                                      message: `Downloading ${resource.name}...`,
-                                      severity: 'info',
-                                    });
-                                  }}
-                                >
-                                  <DownloadIcon />
-                    </IconButton>
-                              </Tooltip>
-                  </Box>
-                </ListItem>
-                          {resources.indexOf(resource) < resources.length - 1 && <Divider />}
-                        </React.Fragment>
-              ))}
-            </List>
-                  )}
+                  <Typography variant="h6" gutterBottom>
+                    Requirements
+                  </Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {demoRequest.requirements || 'No specific requirements provided.'}
+                  </Typography>
                 </CardContent>
               </Card>
             </Grow>
@@ -1051,22 +1358,22 @@ export default function DemoDetailPage() {
                     <Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                         <Avatar sx={{ mr: 2, bgcolor: theme.palette.secondary.main }}>
-                          {demoRequest.assignedTo.name[0]}
+                          {demoRequest.assignedAgentName?.[0]}
                         </Avatar>
                         <Box>
                           <Typography variant="subtitle1">
-                            {demoRequest.assignedTo.name}
+                            {demoRequest.assignedAgentName}
                           </Typography>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <PhoneIcon color="primary" fontSize="small" />
                             <Typography variant="body2" color="text.secondary">
-                              {demoRequest.assignedTo.phone}
+                              {demoRequest.assignedTo}
                             </Typography>
                             <Tooltip title="Copy phone number">
                               <IconButton 
                                 size="small"
                                 onClick={() => handleCopyToClipboard(
-                                  demoRequest.assignedTo!.phone,
+                                  demoRequest.assignedTo || '',
                                   'Agent phone number copied to clipboard'
                                 )}
                               >
@@ -1173,11 +1480,11 @@ export default function DemoDetailPage() {
               </Button>
               <Button
                 variant="outlined"
-                      startIcon={<SendIcon />}
+                startIcon={<LinkIcon />}
                 fullWidth
-                      onClick={handleOpenSendResourcesDialog}
+                onClick={handleOpenMeetingLinkDialog}
               >
-                      Send Resources
+                Add Meeting Link
               </Button>
             </Stack>
                 </CardContent>
@@ -1218,52 +1525,82 @@ export default function DemoDetailPage() {
           <Card>
             <CardContent>
               <Box sx={{ position: 'relative', pl: 3 }}>
-                {filteredTimeline.map((event, index) => (
-                  <Fade in={true} key={event.id} timeout={500 + index * 100}>
-                    <Box
-                      sx={{
-                        position: 'relative',
-                        pb: 3,
-                        '&:last-child': { pb: 0 },
-                        '&::before': {
-                          content: '""',
-                          position: 'absolute',
-                          left: -9,
-                          top: 0,
-                          bottom: 0,
-                          width: '2px',
-                          backgroundColor: 'divider',
-                        },
-                        '&::after': {
-                          content: '""',
-                          position: 'absolute',
-                          left: -12,
-                          top: 0,
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '50%',
-                          backgroundColor: theme.palette.primary.main,
-                        },
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                        <Box sx={{ color: theme.palette.primary.main }}>
-                          {getTimelineIcon(event.type)}
-                        </Box>
-                        <Box sx={{ flex: 1, p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.primary.main, 0.03) }}>
-                          <Typography variant="subtitle2" gutterBottom>
-                            {event.description}
-                </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {event.date} at {event.time} by {event.user}
-                          </Typography>
+                {filteredTimeline.length > 0 ? (
+                  filteredTimeline.map((event, index) => (
+                    <Fade in={true} key={event.id} timeout={500 + index * 100}>
+                      <Box
+                        sx={{
+                          position: 'relative',
+                          pb: 3,
+                          '&:last-child': { pb: 0 },
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            left: -9,
+                            top: 0,
+                            bottom: 0,
+                            width: '2px',
+                            backgroundColor: 'divider',
+                          },
+                          '&::after': {
+                            content: '""',
+                            position: 'absolute',
+                            left: -12,
+                            top: 0,
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: theme.palette.primary.main,
+                          },
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                          <Box sx={{ color: theme.palette.primary.main }}>
+                            {getTimelineIcon(event.type)}
+                          </Box>
+                          <Box sx={{ flex: 1, p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.primary.main, 0.03) }}>
+                            <Typography variant="subtitle2" gutterBottom>
+                              {event.description}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {event.date} at {event.time} by {event.user}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}>
+                              Activity type: {event.type}
+                            </Typography>
+                          </Box>
                         </Box>
                       </Box>
-                    </Box>
-                  </Fade>
-                ))}
-
-                {filteredTimeline.length === 0 && (
+                    </Fade>
+                  ))
+                ) : demoRequest?.timeline && demoRequest.timeline.length > 0 ? (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      {timelineFilter ? 
+                        `No timeline events match the filter "${timelineFilter}".` : 
+                        'Timeline events aren\'t being displayed properly.'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {`${demoRequest.timeline.length} total activities found but not visible.`}
+                    </Typography>
+                    <Button 
+                      variant="text" 
+                      size="small" 
+                      sx={{ mt: 1 }}
+                      onClick={() => {
+                        console.log('Debug info - Timeline events:', demoRequest.timeline);
+                        setTimelineFilter('');
+                        setSnackbar({
+                          open: true,
+                          message: 'Timeline filter cleared and debug info logged to console',
+                          severity: 'info',
+                        });
+                      }}
+                    >
+                      Clear Filter & Debug
+                    </Button>
+                  </Box>
+                ) : (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
                     <Typography variant="body2" color="text.secondary">
                       No timeline events found. Add an activity to get started.
@@ -1367,6 +1704,101 @@ export default function DemoDetailPage() {
         </DialogActions>
       </Dialog>
 
+      <Dialog
+        open={whatsappDialogOpen}
+        onClose={handleCloseWhatsappDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0, 32, 74, 0.15)',
+          },
+        }}
+      >
+        <DialogTitle>Update Mobile/WhatsApp Number</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Mobile Number"
+            fullWidth
+            value={whatsappNumber}
+            onChange={(e) => setWhatsappNumber(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <PhoneIcon color="primary" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Enter the mobile number including country code (e.g., +91 98765 43210)
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseWhatsappDialog} disabled={submitting}>Cancel</Button>
+          <Button 
+            onClick={handleSaveWhatsappNumber} 
+            variant="contained" 
+            disabled={!whatsappNumber || submitting}
+            startIcon={submitting ? <CircularProgress size={20} /> : undefined}
+            color="primary"
+          >
+            {submitting ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={meetingLinkDialogOpen}
+        onClose={handleCloseMeetingLinkDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0, 32, 74, 0.15)',
+          },
+        }}
+      >
+        <DialogTitle>Add Meeting Link</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Meeting Link"
+            fullWidth
+            value={meetingLink}
+            onChange={(e) => setMeetingLink(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LinkIcon color="primary" />
+                </InputAdornment>
+              ),
+            }}
+            placeholder="https://meet.google.com/abc-defg-hij"
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Enter the full meeting link (e.g., Google Meet, Zoom, Microsoft Teams)
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseMeetingLinkDialog} disabled={submitting}>Cancel</Button>
+          <Button 
+            onClick={handleSaveMeetingLink} 
+            variant="contained" 
+            disabled={!meetingLink || submitting}
+            startIcon={submitting ? <CircularProgress size={20} /> : undefined}
+            color="primary"
+          >
+            {submitting ? 'Saving...' : 'Add Link'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Menu
         anchorEl={menuAnchorEl}
         open={Boolean(menuAnchorEl)}
@@ -1436,278 +1868,6 @@ export default function DemoDetailPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-
-      <Dialog
-        open={resourceDialogOpen}
-        onClose={handleCloseResourceDialog}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 2,
-            boxShadow: '0 8px 32px rgba(0, 32, 74, 0.15)',
-          },
-        }}
-      >
-        <DialogTitle>
-          Manage Demo Resources
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select resources for this demo from the admin resource library.
-          </Typography>
-          
-          <Box sx={{ mb: 2 }}>
-            <TextField
-              placeholder="Search resources..."
-              size="small"
-              fullWidth
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Box>
-          
-          <List>
-            {mockDemoResources.map((resource) => (
-              <React.Fragment key={resource.id}>
-                <ListItem 
-                  sx={{ 
-                    borderRadius: 1,
-                    '&:hover': {
-                      backgroundColor: alpha(theme.palette.primary.main, 0.05),
-                    },
-                  }}
-                >
-                  <Checkbox
-                    checked={selectedResources.includes(resource.id)}
-                    onChange={() => handleResourceCheckboxChange(resource.id)}
-                  />
-                  <ListItemIcon>
-                    {getResourceIcon(resource.type)}
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary={resource.name} 
-                    secondary={`${resource.type.toUpperCase()} ${resource.size ? `• ${resource.size}` : ''} • Last updated ${new Date(resource.lastUpdated).toLocaleDateString()}`}
-                  />
-                  <Chip
-                    size="small"
-                    label={resource.category}
-                    color={resource.category === 'script' ? 'primary' : 'default'}
-                  />
-                </ListItem>
-                <Divider />
-              </React.Fragment>
-            ))}
-          </List>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseResourceDialog} disabled={adminResourcesLoading}>Cancel</Button>
-          <Button 
-            onClick={handleSaveResources} 
-            variant="contained" 
-            disabled={adminResourcesLoading}
-            startIcon={adminResourcesLoading ? <CircularProgress size={20} /> : undefined}
-          >
-            {adminResourcesLoading ? 'Saving...' : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={whatsappDialogOpen}
-        onClose={handleCloseWhatsappDialog}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 2,
-            boxShadow: '0 8px 32px rgba(0, 32, 74, 0.15)',
-          },
-        }}
-      >
-        <DialogTitle>Update WhatsApp Number</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="WhatsApp Number"
-            fullWidth
-            value={whatsappNumber}
-            onChange={(e) => setWhatsappNumber(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <WhatsAppIcon color="success" />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            Enter the WhatsApp number including country code (e.g., +91 98765 43210)
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseWhatsappDialog} disabled={submitting}>Cancel</Button>
-          <Button 
-            onClick={handleSaveWhatsappNumber} 
-            variant="contained" 
-            disabled={!whatsappNumber || submitting}
-            startIcon={submitting ? <CircularProgress size={20} /> : undefined}
-            color="success"
-          >
-            {submitting ? 'Saving...' : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={sendResourcesDialogOpen}
-        onClose={handleCloseSendResourcesDialog}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 2,
-            boxShadow: '0 8px 32px rgba(0, 32, 74, 0.15)',
-          },
-        }}
-      >
-        <DialogTitle>Send Resources</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select resources to send to the client and choose the sending method.
-          </Typography>
-          
-          <FormControl component="fieldset" sx={{ mb: 3 }}>
-            <RadioGroup
-              row
-              value={sendMethod}
-              onChange={(e) => setSendMethod(e.target.value as 'email' | 'whatsapp')}
-            >
-              <FormControlLabel value="email" control={<Radio />} label="Email" />
-              <FormControlLabel 
-                value="whatsapp" 
-                control={<Radio />} 
-                label={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Typography>WhatsApp</Typography>
-                    <WhatsAppIcon color="success" fontSize="small" />
-                  </Box>
-                } 
-              />
-            </RadioGroup>
-          </FormControl>
-          
-          {sendMethod === 'whatsapp' && !demoRequest?.whatsappNumber && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              No WhatsApp number is set for this client. 
-              <Button 
-                size="small"
-                color="inherit"
-                onClick={() => {
-                  handleCloseSendResourcesDialog();
-                  handleOpenWhatsappDialog();
-                }}
-                sx={{ ml: 1 }}
-              >
-                Add WhatsApp Number
-              </Button>
-            </Alert>
-          )}
-          
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Select Resources to Send:
-          </Typography>
-          
-          <List sx={{ bgcolor: alpha(theme.palette.background.paper, 0.5), borderRadius: 1 }}>
-            {resources.map((resource) => (
-              <React.Fragment key={resource.id}>
-                <ListItem 
-                  sx={{ 
-                    borderRadius: 1,
-                    '&:hover': {
-                      backgroundColor: alpha(theme.palette.primary.main, 0.05),
-                    },
-                  }}
-                >
-                  <Checkbox
-                    checked={resourcesToSend.includes(resource.id)}
-                    onChange={() => handleResourceSendSelection(resource.id)}
-                  />
-                  <ListItemIcon>
-                    {resource.type === 'pdf' ? <PictureAsPdfIcon color="error" /> :
-                      resource.type === 'docx' ? <DescriptionIcon color="primary" /> :
-                      resource.type === 'pptx' ? <SlideshowIcon color="warning" /> :
-                      resource.type === 'video' ? <OndemandVideoIcon color="secondary" /> :
-                      resource.type === 'link' ? <LinkIcon color="primary" /> :
-                      <InsertDriveFileIcon color="primary" />
-                    }
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary={resource.name} 
-                    secondary={`${resource.type.toUpperCase()} ${resource.size ? `• ${resource.size}` : ''}`}
-                  />
-                  <Chip
-                    size="small"
-                    label={resource.category}
-                    color={resource.category === 'script' ? 'primary' : 'default'}
-                  />
-                </ListItem>
-                <Divider />
-              </React.Fragment>
-            ))}
-            
-            {resources.length === 0 && (
-              <ListItem sx={{ justifyContent: 'center', p: 3 }}>
-                <Typography variant="body2" color="text.secondary">
-                  No resources available to send. 
-                  {userRole === 'admin' && (
-                    <Button 
-                      size="small" 
-                      onClick={() => {
-                        handleCloseSendResourcesDialog();
-                        handleOpenResourceDialog();
-                      }}
-                      sx={{ ml: 1 }}
-                    >
-                      Add Resources
-                    </Button>
-                  )}
-                </Typography>
-              </ListItem>
-            )}
-          </List>
-
-          {sendMethod === 'email' && (
-            <TextField
-              margin="dense"
-              label="Custom Message (Optional)"
-              fullWidth
-              multiline
-              rows={3}
-              placeholder="Add a custom message to include with the resources..."
-              sx={{ mt: 2 }}
-            />
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseSendResourcesDialog} disabled={submitting}>Cancel</Button>
-          <Button 
-            onClick={handleSendResources} 
-            variant="contained" 
-            disabled={resourcesToSend.length === 0 || submitting || (sendMethod === 'whatsapp' && !demoRequest?.whatsappNumber)}
-            startIcon={submitting ? <CircularProgress size={20} /> : <SendIcon />}
-            color="primary"
-          >
-            {submitting ? 'Sending...' : `Send via ${sendMethod === 'email' ? 'Email' : 'WhatsApp'}`}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 } 

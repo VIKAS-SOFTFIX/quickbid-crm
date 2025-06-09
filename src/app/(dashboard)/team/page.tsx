@@ -29,11 +29,36 @@ import {
   WhatsApp as WhatsAppIcon,
   Email as EmailIcon,
 } from '@mui/icons-material';
-import { mockSalesTeam } from '@/services/mockData';
 
 export default function TeamPage() {
   const [open, setOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
+
+  // Mock sales team data
+  const mockSalesTeam = [
+    {
+      id: 'sales1',
+      name: 'Rajesh Kumar',
+      email: 'rajesh@quickbid.co.in',
+      role: 'sales',
+      performance: {
+        leadsAssigned: 15,
+        leadsConverted: 8,
+        conversionRate: 53.33,
+      },
+    },
+    {
+      id: 'sales2',
+      name: 'Priya Sharma',
+      email: 'priya@quickbid.co.in',
+      role: 'sales',
+      performance: {
+        leadsAssigned: 12,
+        leadsConverted: 6,
+        conversionRate: 50,
+      },
+    },
+  ];
 
   const handleOpen = (member?: any) => {
     setSelectedMember(member);

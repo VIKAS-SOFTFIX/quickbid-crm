@@ -57,105 +57,17 @@ import {
   Event as EventIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { mockLeads } from '@/services/mockData';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-
-interface DemoRequest {
-  id: string;
-  leadName: string;
-  companyName: string;
-  contactPhone: string;
-  preferredDate: string;
-  preferredTime: string;
-  status: 'pending' | 'scheduled' | 'completed' | 'cancelled' | 'rejected';
-  assignedTo: string;
-  notes?: string;
-  createdAt?: string;
-}
-
-// Mock data for demo requests
-const mockDemoRequests: DemoRequest[] = [
-  {
-    id: '1',
-    leadName: 'John Doe',
-    companyName: 'Tech Solutions Inc.',
-    contactPhone: '+91 98765 43210',
-    preferredDate: new Date().toISOString().split('T')[0], // Today
-    preferredTime: '10:00 AM',
-    status: 'scheduled',
-    assignedTo: 'John Doe',
-    notes: 'Interested in enterprise features',
-    createdAt: '2024-03-20',
-  },
-  {
-    id: '2',
-    leadName: 'Jane Smith',
-    companyName: 'Global Industries',
-    contactPhone: '+91 98765 43211',
-    preferredDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], // Tomorrow
-    preferredTime: '2:00 PM',
-    status: 'pending',
-    assignedTo: 'Jane Smith',
-    notes: 'Looking for bulk pricing',
-    createdAt: '2024-03-21',
-  },
-  {
-    id: '3',
-    leadName: 'Robert Johnson',
-    companyName: 'Johnson & Associates',
-    contactPhone: '+91 98765 43212',
-    preferredDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0], // Day after tomorrow
-    preferredTime: '11:30 AM',
-    status: 'scheduled',
-    assignedTo: 'Mike Johnson',
-    notes: 'Interested in premium features',
-    createdAt: '2024-03-18',
-  },
-  {
-    id: '4',
-    leadName: 'Emily Chen',
-    companyName: 'Chen Technology',
-    contactPhone: '+91 98765 43213',
-    preferredDate: new Date().toISOString().split('T')[0], // Today
-    preferredTime: '3:00 PM',
-    status: 'scheduled',
-    assignedTo: 'Sarah Wilson',
-    notes: 'Needs detailed walkthrough',
-    createdAt: '2024-03-15',
-  },
-  {
-    id: '5',
-    leadName: 'Michael Brown',
-    companyName: 'Brown Industries',
-    contactPhone: '+91 98765 43214',
-    preferredDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0], // 3 days from now
-    preferredTime: '11:00 AM',
-    status: 'scheduled',
-    assignedTo: 'Jane Smith',
-    notes: 'Focus on integration features',
-    createdAt: '2024-03-22',
-  },
-  {
-    id: '6',
-    leadName: 'Sarah Wong',
-    companyName: 'Wong LLC',
-    contactPhone: '+91 98765 43215',
-    preferredDate: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0], // 5 days from now
-    preferredTime: '1:30 PM',
-    status: 'scheduled',
-    assignedTo: 'Mike Johnson',
-    notes: 'Enterprise client, big opportunity',
-    createdAt: '2024-03-22',
-  },
-];
+import { DemoRequest, getDemoRequests, createDemoRequest, updateDemoRequest } from '@/services/demoService';
+import { getDemoActivities } from '@/services/demoActivityService';
 
 // Mock data for team members
 const mockTeamMembers = [
-  { id: '1', name: 'John Doe', role: 'sales' },
-  { id: '2', name: 'Jane Smith', role: 'sales' },
-  { id: '3', name: 'Mike Johnson', role: 'demonstrator' },
-  { id: '4', name: 'Sarah Wilson', role: 'demonstrator' },
+  { id: '1', name: 'John Doe', email: 'agent1@quickbid.co.in', role: 'sales' },
+  { id: '2', name: 'Jane Smith', email: 'agent2@quickbid.co.in', role: 'sales' },
+  { id: '3', name: 'Mike Johnson', email: 'agent3@quickbid.co.in', role: 'demonstrator' },
+  { id: '4', name: 'Sarah Wilson', email: 'agent4@quickbid.co.in', role: 'demonstrator' },
 ];
 
 const statusColors = {
@@ -195,12 +107,89 @@ export default function DemoRequestsPage() {
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    // Simulate API loading
-    const timer = setTimeout(() => {
-      setRequests(mockDemoRequests);
-      setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
+    // Fetch demo requests from API
+    const fetchDemoRequests = async () => {
+      try {
+        setLoading(true);
+        console.log('Starting to fetch demo requests...');
+        const response = await getDemoRequests();
+        console.log('Response from getDemoRequests:', response);
+        
+        if (response && response.success && Array.isArray(response.data)) {
+          // Process the dates to ensure they're in the correct format for display
+          const formattedData = response.data.map(demo => ({
+            ...demo,
+            // Extract just the date part from ISO strings
+            preferredDate: demo.preferredDate ? demo.preferredDate.split('T')[0] : new Date().toISOString().split('T')[0]
+          }));
+          
+          console.log('Setting demo requests with formatted dates:', formattedData);
+          setRequests(formattedData);
+        } else {
+          console.warn('Invalid response format or empty data:', response);
+          // For testing/fallback - create some dummy data if API fails
+          const fallbackData = [
+            {
+              id: '1',
+              name: 'John Doe',
+              email: 'john@example.com',
+              mobile: '+1234567890',
+              businessName: 'Acme Inc',
+              preferredDate: new Date().toISOString().split('T')[0],
+              preferredTime: '10:00 AM',
+              status: 'pending' as const,
+              priority: 'medium' as const,
+              interestedIn: 'Product Demo',
+              services: ['Web App'],
+              industry: 'Technology',
+              assignedTo: 'agent1@quickbid.co.in',
+              assignedAgentName: 'John Doe',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }
+          ];
+          setRequests(fallbackData);
+          setSnackbar({
+            open: true,
+            message: 'Failed to fetch demo requests, using sample data',
+            severity: 'warning',
+          });
+        }
+      } catch (error) {
+        console.error('Error in fetchDemoRequests:', error);
+        // For testing/fallback - create some dummy data if API fails
+        const fallbackData = [
+          {
+            id: '1',
+            name: 'John Doe',
+            email: 'john@example.com',
+            mobile: '+1234567890',
+            businessName: 'Acme Inc',
+            preferredDate: new Date().toISOString().split('T')[0],
+            preferredTime: '10:00 AM',
+            status: 'pending' as const,
+            priority: 'medium' as const,
+            interestedIn: 'Product Demo',
+            services: ['Web App'],
+            industry: 'Technology',
+            assignedTo: 'agent1@quickbid.co.in',
+            assignedAgentName: 'John Doe',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        ];
+        setRequests(fallbackData);
+        setSnackbar({
+          open: true,
+          message: 'Error fetching demo requests, using sample data',
+          severity: 'error',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDemoRequests();
   }, []);
 
   const handleOpen = (request?: DemoRequest) => {
@@ -213,38 +202,60 @@ export default function DemoRequestsPage() {
     setOpen(false);
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
       const formData = new FormData(event.currentTarget);
       const formValues = Object.fromEntries(formData.entries());
       
-    // Handle form submission
-      const newRequest: DemoRequest = {
-        id: selectedRequest?.id || (requests.length + 1).toString(),
-        leadName: formValues.leadName as string,
-        companyName: formValues.companyName as string,
-        contactPhone: formValues.contactPhone as string,
-        preferredDate: formValues.preferredDate as string,
-        preferredTime: formValues.preferredTime as string,
+      console.log('Form values:', formValues);
+      
+      // Format date properly for API
+      const preferredDate = formValues.preferredDate as string;
+      const preferredTime = formValues.preferredTime as string;
+      
+      // Prepare the demo request data
+      const demoData: any = {
+        name: formValues.name as string,
+        email: formValues.email as string,
+        mobile: formValues.mobile as string,
+        businessName: formValues.businessName as string,
+        // Send the date in ISO format as required by the API
+        preferredDate: `${preferredDate}T10:00:00.000Z`,
+        preferredTime: preferredTime,
         status: formValues.status as DemoRequest['status'],
+        priority: formValues.priority || 'medium',
+        interestedIn: formValues.interestedIn || 'Product Demo',
+        services: formValues.services ? (formValues.services as string).split(',') : ['Web App'],
+        industry: formValues.industry || 'Technology',
+        notes: formValues.notes as string || '',
+        requirements: formValues.requirements as string || '',
         assignedTo: formValues.assignedTo as string,
-        notes: formValues.notes as string,
-        createdAt: selectedRequest?.createdAt || new Date().toISOString().split('T')[0],
       };
       
+      // Add the agent's name based on the selected email
+      const selectedAgent = mockTeamMembers.find(m => m.email === formValues.assignedTo);
+      if (selectedAgent) {
+        demoData.assignedAgentName = selectedAgent.name;
+      }
+      
+      console.log('Prepared demo data:', demoData);
+      
+      let response;
+      
       if (selectedRequest) {
-        setRequests(prev => prev.map(r => r.id === newRequest.id ? newRequest : r));
+        // Update existing demo request
+        response = await updateDemoRequest(selectedRequest.id, demoData);
         setSnackbar({
           open: true,
           message: 'Demo request updated successfully',
           severity: 'success',
         });
       } else {
-        setRequests(prev => [newRequest, ...prev]);
+        // Create new demo request
+        response = await createDemoRequest(demoData);
         setSnackbar({
           open: true,
           message: 'Demo request created successfully',
@@ -252,9 +263,67 @@ export default function DemoRequestsPage() {
         });
       }
       
+      console.log('API response:', response);
+      
+      if (response && response.success) {
+        // Refresh the demo requests list
+        const refreshResponse = await getDemoRequests();
+        if (refreshResponse.success && Array.isArray(refreshResponse.data)) {
+          const formattedData = refreshResponse.data.map(demo => ({
+            ...demo,
+            // Extract just the date part from ISO strings for display
+            preferredDate: demo.preferredDate ? demo.preferredDate.split('T')[0] : new Date().toISOString().split('T')[0]
+          }));
+          
+          setRequests(formattedData);
+        } else {
+          // Add the newly created demo to the existing list
+          if (response.data) {
+            if (selectedRequest) {
+              // Update the existing request in the list
+              setRequests(prev => prev.map(item => {
+                if (item.id === selectedRequest.id && response.data) {
+                  // Ensure we have the right format for the updated record
+                  return {
+                    ...response.data,
+                    preferredDate: response.data.preferredDate 
+                      ? response.data.preferredDate.split('T')[0] 
+                      : new Date().toISOString().split('T')[0]
+                  } as DemoRequest;
+                }
+                return item;
+              }));
+            } else if (response.data) {
+              // Add the new request to the list
+              const newDemo = {
+                ...response.data,
+                preferredDate: response.data.preferredDate 
+                  ? response.data.preferredDate.split('T')[0] 
+                  : new Date().toISOString().split('T')[0]
+              } as DemoRequest;
+              
+              setRequests(prev => [newDemo, ...prev]);
+            }
+          }
+        }
+        handleClose();
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Failed to save demo request',
+          severity: 'error',
+        });
+      }
+    } catch (error) {
+      console.error('Error saving demo request:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error saving demo request',
+        severity: 'error',
+      });
+    } finally {
       setSubmitting(false);
-    handleClose();
-    }, 1000);
+    }
   };
 
   const handleRowClick = (request: DemoRequest) => {
@@ -264,15 +333,6 @@ export default function DemoRequestsPage() {
   const handleEditClick = (request: DemoRequest, e: React.MouseEvent) => {
     e.stopPropagation();
     router.push(`/demo-requests/${request.id}`);
-  };
-
-  const handleCallClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSnackbar({
-      open: true,
-      message: 'Initiating call...',
-      severity: 'info',
-    });
   };
 
   const handleViewModeChange = (
@@ -298,31 +358,37 @@ export default function DemoRequestsPage() {
   // First filter and sort the requests
   const filteredRequests = requests
     .filter(request => {
+      console.log('Filtering request:', request, 'viewType:', viewType);
+      
       // Filter by view type
-      if (viewType === 'ongoing' && request.preferredDate !== today) {
-        return false;
+      if (viewType === 'ongoing') {
+        // For ongoing, show any pending or scheduled requests regardless of date
+        return ['pending', 'scheduled'].includes(request.status);
       }
       
-      if (viewType === 'upcoming' && request.preferredDate <= today) {
-        return false;
+      if (viewType === 'upcoming') {
+        // For upcoming, show any future date
+        const requestDate = new Date(request.preferredDate);
+        const currentDate = new Date();
+        currentDate.setHours(0, 0, 0, 0);
+        return requestDate >= currentDate;
       }
       
-      // New filters for completed and rejected types
-      if (viewType === 'completed' && request.status !== 'completed') {
-        return false;
+      if (viewType === 'completed') {
+        return request.status === 'completed';
       }
       
-      if (viewType === 'rejected' && request.status !== 'cancelled' && request.status !== 'rejected') {
-        return false;
+      if (viewType === 'rejected') {
+        return ['cancelled', 'rejected'].includes(request.status);
       }
 
       // Apply search query
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         if (
-          !request.leadName.toLowerCase().includes(query) &&
-          !request.companyName.toLowerCase().includes(query) &&
-          !request.contactPhone.includes(query) &&
+          !request.name?.toLowerCase().includes(query) &&
+          !request.businessName?.toLowerCase().includes(query) &&
+          !request.mobile?.includes(query) &&
           !request.notes?.toLowerCase().includes(query)
         ) {
           return false;
@@ -339,7 +405,7 @@ export default function DemoRequestsPage() {
         return false;
       }
       
-    return true;
+      return true;
     })
     .sort((a, b) => {
       // For completed and rejected, sort by most recent first
@@ -352,16 +418,21 @@ export default function DemoRequestsPage() {
       }
       
       // Otherwise sort by date
-      const dateComparison = new Date(a.preferredDate).getTime() - new Date(b.preferredDate).getTime();
+      const dateA = new Date(a.preferredDate);
+      const dateB = new Date(b.preferredDate);
+      const dateComparison = dateA.getTime() - dateB.getTime();
       if (dateComparison !== 0) return dateComparison;
       
       // If same date, sort by time
-      return a.preferredTime.localeCompare(b.preferredTime);
+      return (a.preferredTime || '').localeCompare(b.preferredTime || '');
     });
+
+  console.log('Filtered requests:', filteredRequests);
 
   // Group the filtered requests by date
   const groupedRequests = filteredRequests.reduce((groups, request) => {
-    const date = request.preferredDate;
+    // Make sure we use just the date part
+    const date = request.preferredDate.split('T')[0];
     if (!groups[date]) {
       groups[date] = [];
     }
@@ -369,25 +440,34 @@ export default function DemoRequestsPage() {
     return groups;
   }, {} as Record<string, DemoRequest[]>);
 
+  console.log('Grouped requests:', groupedRequests);
+
   // Convert dates to array for rendering
   const sortedDates = Object.keys(groupedRequests).sort((a, b) => 
     new Date(a).getTime() - new Date(b).getTime()
   );
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Make sure we use just the date part
+    const datePart = dateString.split('T')[0];
+    const date = new Date(datePart);
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day for comparison
+    
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     
-    if (dateString === today.toISOString().split('T')[0]) {
+    const dateToCompare = new Date(datePart);
+    dateToCompare.setHours(0, 0, 0, 0); // Set to start of day for comparison
+    
+    if (dateToCompare.getTime() === today.getTime()) {
       return 'Today';
-    } else if (dateString === tomorrow.toISOString().split('T')[0]) {
+    } else if (dateToCompare.getTime() === tomorrow.getTime()) {
       return 'Tomorrow';
     } else {
-      return date.toLocaleDateString('en-US', { 
+      return date.toLocaleDateString('en-US', {
         weekday: 'long', 
-        month: 'short', 
+        month: 'short',
         day: 'numeric' 
       });
     }
@@ -429,10 +509,10 @@ export default function DemoRequestsPage() {
     <Box>
       {sortedDates.map((date) => (
         <Box key={date} sx={{ mb: 4 }}>
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
               mb: 2,
               p: 1,
               borderRadius: 1,
@@ -477,9 +557,9 @@ export default function DemoRequestsPage() {
                           <PersonIcon />
                         </Avatar>
                         <Box>
-                          <Typography variant="subtitle1">{request.leadName}</Typography>
+                          <Typography variant="subtitle1">{request.name}</Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {request.companyName}
+                            {request.businessName}
                           </Typography>
                         </Box>
                       </Box>
@@ -495,7 +575,7 @@ export default function DemoRequestsPage() {
                     <Grid item xs={6} sm={2}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <PersonIcon fontSize="small" color="action" />
-                        <Typography variant="body2">{request.assignedTo}</Typography>
+                        <Typography variant="body2">{request.assignedAgentName || request.assignedTo || 'Unassigned'}</Typography>
                       </Box>
                     </Grid>
                     <Grid item xs={6} sm={1}>
@@ -510,20 +590,6 @@ export default function DemoRequestsPage() {
                       />
                     </Grid>
                     <Grid item xs={6} sm={2} textAlign="right">
-                      <Tooltip title="Call Now">
-                        <IconButton
-                          size="small"
-                          onClick={handleCallClick}
-                          sx={{
-                            color: theme.palette.primary.main,
-                            '&:hover': {
-                              backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                            },
-                          }}
-                        >
-                          <PhoneIcon />
-                        </IconButton>
-                      </Tooltip>
                       <Tooltip title="View Details">
                         <IconButton
                           size="small"
@@ -626,12 +692,12 @@ export default function DemoRequestsPage() {
                         </Avatar>
                         <Box>
                           <Typography variant="h6" gutterBottom>
-                            {request.leadName}
+                            {request.name}
                           </Typography>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <BusinessIcon fontSize="small" color="action" />
                             <Typography variant="body2" color="text.secondary">
-                              {request.companyName}
+                              {request.businessName}
                             </Typography>
                           </Box>
                         </Box>
@@ -640,7 +706,7 @@ export default function DemoRequestsPage() {
                       <Stack spacing={2}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <PhoneIcon color="primary" fontSize="small" />
-                          <Typography variant="body2">{request.contactPhone}</Typography>
+                          <Typography variant="body2">{request.mobile}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <AccessTimeIcon color="primary" fontSize="small" />
@@ -650,7 +716,7 @@ export default function DemoRequestsPage() {
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <PersonIcon color="primary" fontSize="small" />
-                          <Typography variant="body2">{request.assignedTo}</Typography>
+                          <Typography variant="body2">{request.assignedAgentName || request.assignedTo || 'Unassigned'}</Typography>
                         </Box>
                       </Stack>
 
@@ -667,20 +733,6 @@ export default function DemoRequestsPage() {
                       </Box>
                     </CardContent>
                     <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
-                      <Tooltip title="Call Now">
-                        <IconButton
-                          size="small"
-                          onClick={handleCallClick}
-                          sx={{
-                            color: theme.palette.primary.main,
-                            '&:hover': {
-                              backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                            },
-                          }}
-                        >
-                          <PhoneIcon />
-                        </IconButton>
-                      </Tooltip>
                       <Tooltip title="View Details">
                         <IconButton
                           size="small"
@@ -711,7 +763,7 @@ export default function DemoRequestsPage() {
       <Box sx={{ mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={8}>
-        <Typography variant="h4">Demo Requests</Typography>
+            <Typography variant="h4">Demo Requests</Typography>
             <Box 
               component={motion.div}
               initial={{ opacity: 0 }}
@@ -737,19 +789,19 @@ export default function DemoRequestsPage() {
             </Box>
           </Grid>
           <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpen()}
-              sx={{
+            <Button 
+              variant="contained" 
+              startIcon={<AddIcon />} 
+              onClick={() => handleOpen()}
+              sx={{ 
                 background: `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.primary.dark} 90%)`,
                 '&:hover': {
                   background: `linear-gradient(45deg, ${theme.palette.primary.dark} 30%, ${theme.palette.primary.main} 90%)`,
                 },
               }}
-        >
-          Schedule Demo
-        </Button>
+            >
+              Schedule Demo
+            </Button>
           </Grid>
         </Grid>
       </Box>
@@ -806,21 +858,21 @@ export default function DemoRequestsPage() {
             />
           </Grid>
           <Grid item xs={6} md={3}>
-          <FormControl fullWidth>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={filters.status}
-              label="Status"
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="pending">Pending</MenuItem>
-              <MenuItem value="scheduled">Scheduled</MenuItem>
-              <MenuItem value="completed">Completed</MenuItem>
-              <MenuItem value="cancelled">Cancelled</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
+            <FormControl fullWidth>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={filters.status}
+                label="Status"
+                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="pending">Pending</MenuItem>
+                <MenuItem value="scheduled">Scheduled</MenuItem>
+                <MenuItem value="completed">Completed</MenuItem>
+                <MenuItem value="cancelled">Cancelled</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
           <Grid item xs={6} md={3}>
             <FormControl fullWidth>
               <InputLabel>Assigned To</InputLabel>
@@ -831,13 +883,13 @@ export default function DemoRequestsPage() {
               >
                 <MenuItem value="">All</MenuItem>
                 {mockTeamMembers.map((member) => (
-                  <MenuItem key={member.id} value={member.name}>
-                    {member.name}
+                  <MenuItem key={member.id} value={member.email}>
+                    {member.name} ({member.role})
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
-      </Grid>
+          </Grid>
           <Grid item xs={12} md={2}>
             <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' }, gap: 1 }}>
               <ToggleButtonGroup
@@ -854,15 +906,15 @@ export default function DemoRequestsPage() {
                   <ViewListIcon />
                 </ToggleButton>
               </ToggleButtonGroup>
-                  </Box>
+            </Box>
           </Grid>
         </Grid>
-                  </Box>
+      </Box>
 
       <Box sx={{ mb: 3 }}>
         {loading ? (
           renderSkeleton()
-        ) : sortedDates.length === 0 ? (
+        ) : filteredRequests.length === 0 ? (
           <Box
             component={motion.div}
             initial={{ opacity: 0 }}
@@ -897,11 +949,85 @@ export default function DemoRequestsPage() {
         ) : (
           renderDateGridView()
         )}
-                  </Box>
+      </Box>
+
+      {/* Fallback rendering if there are no sorted dates but filtered requests exist */}
+      {!loading && filteredRequests.length > 0 && Object.keys(groupedRequests).length === 0 && (
+        <Box sx={{ mb: 3, border: '1px solid #ffe0b2', p: 3, borderRadius: 2, bgcolor: '#fff8e1' }}>
+          <Typography variant="h6" color="warning.main" gutterBottom>
+            Date Grouping Issue Detected
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            {filteredRequests.length} requests matched your filters, but couldn't be grouped by date.
+          </Typography>
+          
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>Showing all filtered results:</Typography>
+            
+            {filteredRequests.map((request) => (
+              <Paper
+                key={request.id}
+                sx={{
+                  p: 2,
+                  mb: 2,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  '&:hover': {
+                    boxShadow: theme.shadows[3],
+                  },
+                }}
+                onClick={() => handleRowClick(request)}
+              >
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Avatar sx={{ mr: 2, bgcolor: theme.palette.primary.main }}>
+                        <PersonIcon />
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle1">{request.name}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {request.businessName}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <Box>
+                      <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <AccessTimeIcon fontSize="small" sx={{ mr: 1 }} />
+                        {request.preferredDate} at {request.preferredTime}
+                      </Typography>
+                      <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
+                        <PhoneIcon fontSize="small" sx={{ mr: 1 }} />
+                        {request.mobile}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={4} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <Chip
+                      label={request.status}
+                      color={statusColors[request.status]}
+                      size="small"
+                      sx={{ mr: 2 }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleEditClick(request, e)}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                  </Grid>
+                </Grid>
+              </Paper>
+            ))}
+          </Box>
+        </Box>
+      )}
 
       <Dialog 
         open={open} 
-        onClose={handleClose} 
+        onClose={handleClose}
         maxWidth="sm" 
         fullWidth
         PaperProps={{
@@ -924,25 +1050,34 @@ export default function DemoRequestsPage() {
               autoFocus
               margin="dense"
               label="Lead Name"
-              name="leadName"
+              name="name"
               fullWidth
-              defaultValue={selectedRequest?.leadName}
+              defaultValue={selectedRequest?.name}
               required
             />
             <TextField
               margin="dense"
               label="Company Name"
-              name="companyName"
+              name="businessName"
               fullWidth
-              defaultValue={selectedRequest?.companyName}
+              defaultValue={selectedRequest?.businessName}
               required
             />
             <TextField
               margin="dense"
               label="Contact Phone"
-              name="contactPhone"
+              name="mobile"
               fullWidth
-              defaultValue={selectedRequest?.contactPhone}
+              defaultValue={selectedRequest?.mobile}
+              required
+            />
+            <TextField
+              margin="dense"
+              label="Email"
+              name="email"
+              type="email"
+              fullWidth
+              defaultValue={selectedRequest?.email}
               required
             />
             <TextField
@@ -951,7 +1086,7 @@ export default function DemoRequestsPage() {
               name="preferredDate"
               type="date"
               fullWidth
-              defaultValue={selectedRequest?.preferredDate}
+              defaultValue={selectedRequest?.preferredDate || today}
               InputLabelProps={{ shrink: true }}
               required
             />
@@ -960,19 +1095,19 @@ export default function DemoRequestsPage() {
               label="Preferred Time"
               name="preferredTime"
               fullWidth
-              defaultValue={selectedRequest?.preferredTime}
+              defaultValue={selectedRequest?.preferredTime || "10:00 AM"}
               required
             />
             <FormControl fullWidth margin="dense">
               <InputLabel>Assigned To</InputLabel>
               <Select
                 name="assignedTo"
-                defaultValue={selectedRequest?.assignedTo || ''}
+                defaultValue={selectedRequest?.assignedTo || mockTeamMembers[0].email}
                 label="Assigned To"
                 required
               >
                 {mockTeamMembers.map((member) => (
-                  <MenuItem key={member.id} value={member.name}>
+                  <MenuItem key={member.id} value={member.email}>
                     {member.name} ({member.role})
                   </MenuItem>
                 ))}
@@ -1001,6 +1136,13 @@ export default function DemoRequestsPage() {
               rows={3}
               defaultValue={selectedRequest?.notes}
             />
+            
+            {/* Hidden fields for API compatibility */}
+            <input type="hidden" name="priority" value={selectedRequest?.priority || "medium"} />
+            <input type="hidden" name="interestedIn" value={selectedRequest?.interestedIn || "Product Demo"} />
+            <input type="hidden" name="services" value={selectedRequest?.services?.join(',') || "Web App"} />
+            <input type="hidden" name="industry" value={selectedRequest?.industry || "Technology"} />
+            <input type="hidden" name="requirements" value={selectedRequest?.requirements || ""} />
           </DialogContent>
           <DialogActions>
             <Button onClick={handleClose} disabled={submitting}>Cancel</Button>
@@ -1036,12 +1178,14 @@ export default function DemoRequestsPage() {
       >
         <Alert 
           onClose={handleSnackbarClose} 
-          severity={snackbar.severity} 
+          severity={snackbar.severity}
           sx={{ width: '100%' }}
         >
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+
     </Box>
   );
 } 

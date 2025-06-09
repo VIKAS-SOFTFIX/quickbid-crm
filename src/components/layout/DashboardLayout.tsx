@@ -65,44 +65,43 @@ const menuCategories = [
   {
     category: 'Overview',
     items: [
-  { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard', roles: ['admin', 'sales', 'demonstrator'] },
+      { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard', roles: ['Administrator', 'sales', 'demonstrator'] },
     ]
   },
   {
     category: 'Pipeline',
     items: [
-  { text: 'Leads', icon: <PeopleIcon />, path: '/leads', roles: ['admin', 'sales'] },
-  { 
-    text: 'Enterprise Requests', 
-    icon: <Badge badgeContent={6} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem', height: 16, minWidth: 16 } }}>
-            <BusinessIcon />
-          </Badge>, 
-    path: '/enterprise-dashboard', 
-    roles: ['admin', 'sales', 'demonstrator', 'manager'] 
-  },
-  { text: 'Demo Requests', icon: <VideoCallIcon />, path: '/demo-requests', roles: ['admin', 'sales', 'demonstrator'] },
-  { text: 'Callback Requests', icon: <PhoneInTalkIcon />, path: '/callback-requests', roles: ['admin', 'sales'] },
-  { text: 'Expert Consultation', icon: <SupportAgentIcon />, path: '/expert-consultation', roles: ['admin', 'sales'] },
-  { text: 'Appointments', icon: <CalendarIcon />, path: '/appointments', roles: ['admin', 'sales'] },
-  { text: 'Waitlist', icon: <BookmarkIcon />, path: '/waitlist', roles: ['admin', 'sales'] },
+      { text: 'Leads', icon: <PeopleIcon />, path: '/leads', roles: ['Administrator', 'sales'] },
+      { 
+        text: 'Enterprise Requests', 
+        icon: <Badge badgeContent={6} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem', height: 16, minWidth: 16 } }}>
+                <BusinessIcon />
+              </Badge>, 
+        path: '/enterprise-dashboard', 
+        roles: ['Administrator', 'sales', 'demonstrator', 'manager'] 
+      },
+      { text: 'Demo Requests', icon: <VideoCallIcon />, path: '/demo-requests', roles: ['Administrator', 'sales', 'demonstrator'] },
+      { text: 'Callback Requests', icon: <PhoneInTalkIcon />, path: '/callback-requests', roles: ['Administrator', 'sales'] },
+      { text: 'Expert Consultation', icon: <SupportAgentIcon />, path: '/expert-consultation', roles: ['Administrator', 'sales'] },
+      { text: 'Appointments', icon: <CalendarIcon />, path: '/appointments', roles: ['Administrator', 'sales'] },
+      { text: 'Waitlist', icon: <BookmarkIcon />, path: '/waitlist', roles: ['Administrator', 'sales'] },
     ]
   },
   {
     category: 'Communications',
     items: [
-  { text: 'Email Marketing', icon: <EmailIcon />, path: '/email-marketing', roles: ['admin', 'sales', 'demonstrator'] },
-  { text: 'WhatsApp Messaging', icon: <WhatsAppIcon />, path: '/whatsapp-messaging', roles: ['admin', 'sales'] },
+      { text: 'Email Marketing', icon: <EmailIcon />, path: '/email-marketing', roles: ['Administrator', 'sales', 'demonstrator'] },
+      { text: 'WhatsApp Messaging', icon: <WhatsAppIcon />, path: '/whatsapp-messaging', roles: ['Administrator', 'sales'] },
     ]
   },
   {
     category: 'Administration',
     items: [
-  { text: 'Settings', icon: <SettingsIcon />, path: '/settings', roles: ['admin'] },
-  { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications', roles: ['admin', 'sales', 'demonstrator', 'manager'] },
+      { text: 'Settings', icon: <SettingsIcon />, path: '/settings', roles: ['Administrator'] },
+      { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications', roles: ['Administrator', 'sales', 'demonstrator', 'manager'] },
     ]
   }
 ];
-
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   const router = useRouter();
@@ -153,8 +152,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const hasAccess = (itemRoles: string[]) => {
-    if (!user?.role) return false;
-    return itemRoles.includes(user.role);
+    if (!user?.roles || user.roles.length === 0) return false;
+    return user.roles.some(role => itemRoles.includes(role));
   };
 
   const toggleCategory = (category: string) => {
@@ -280,7 +279,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               border: '2px solid rgba(255, 255, 255, 0.2)',
             }}
           >
-            {user?.name?.[0]}
+            {user?.firstName?.[0]}
           </Avatar>
           <Box sx={{ overflow: 'hidden' }}>
             <Typography 
@@ -293,7 +292,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 textOverflow: 'ellipsis',
               }}
             >
-              {user?.name || 'User'}
+              {user?.firstName || 'User'}
             </Typography>
             <Typography 
               variant="body2" 
@@ -305,7 +304,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 textOverflow: 'ellipsis',
               }}
             >
-              {user?.role || 'Role'}
+              {user?.roles?.[0] || 'Role'}
             </Typography>
           </Box>
         </Box>
@@ -625,7 +624,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     fontWeight: 700,
                   }}
                 >
-                  {user?.name?.[0]}
+                  {user?.firstName?.[0]}
                 </Avatar>
               </IconButton>
             </Tooltip>
@@ -655,14 +654,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   color: theme.palette.primary.main,
                 }}
               >
-                {user?.name?.[0]}
+                {user?.firstName?.[0]}
               </Avatar>
               <Box>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  {user?.name || 'User'}
+                  {user?.firstName || 'User'}
                 </Typography>
                 <Typography variant="body2" sx={{ color: theme.palette.text.secondary, textTransform: 'capitalize' }}>
-                  {user?.role || 'Role'}
+                  {user?.roles?.[0] || 'Role'}
                 </Typography>
               </Box>
             </Box>

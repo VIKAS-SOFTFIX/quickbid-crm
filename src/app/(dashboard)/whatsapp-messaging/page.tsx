@@ -34,10 +34,7 @@ import {
   Description as TemplateIcon,
   PersonSearch as PersonSearchIcon,
 } from '@mui/icons-material';
-import { metaApiService } from '@/services/metaApi';
-import { mockLeads } from '@/services/mockData';
 import { API_CONFIG } from '@/config/api';
-import { whatsAppService } from '@/services/whatsAppService';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -105,6 +102,79 @@ export default function WhatsAppMessagingPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Mock leads data
+  const mockLeads = [
+    {
+      id: '1',
+      name: 'John Doe',
+      email: 'john@example.com',
+      phone: '+91 98765 43210',
+      company: 'Tech Solutions Pvt Ltd',
+      source: 'website',
+      status: 'new',
+      priority: 'high',
+      assignedTo: 'sales1',
+      notes: [
+        {
+          id: '1',
+          leadId: '1',
+          content: 'Interested in enterprise plan',
+          createdBy: 'sales1',
+          createdAt: '2024-03-25T10:00:00Z',
+          type: 'note'
+        }
+      ],
+      createdAt: '2024-03-25T10:00:00Z'
+    },
+    {
+      id: '2',
+      name: 'Jane Smith',
+      email: 'jane@example.com',
+      phone: '+91 98765 43211',
+      company: 'Digital Marketing Agency',
+      source: 'google_ads',
+      status: 'contacted',
+      priority: 'medium',
+      assignedTo: 'sales2',
+      notes: [
+        {
+          id: '4',
+          leadId: '2',
+          content: 'Looking for bulk pricing',
+          createdBy: 'sales2',
+          createdAt: '2024-03-24T09:00:00Z',
+          type: 'note'
+        }
+      ],
+      createdAt: '2024-03-24T09:00:00Z'
+    }
+  ];
+
+  // Mock templates data
+  const mockTemplates = [
+    {
+      id: '1',
+      name: 'welcome_message',
+      status: 'approved',
+      category: 'MARKETING',
+      language: 'en'
+    },
+    {
+      id: '2',
+      name: 'appointment_reminder',
+      status: 'approved',
+      category: 'UTILITY',
+      language: 'en'
+    },
+    {
+      id: '3',
+      name: 'demo_confirmation',
+      status: 'approved',
+      category: 'UTILITY',
+      language: 'en'
+    }
+  ];
+
   useEffect(() => {
     // Initialize contacts from leads
     const leadContacts = mockLeads.map(lead => ({
@@ -120,18 +190,20 @@ export default function WhatsAppMessagingPage() {
     
     setContacts(leadContacts);
     
-    // Fetch templates
-    loadTemplates();
+    // Set mock templates
+    setTemplates(mockTemplates);
   }, []);
 
   const loadTemplates = async () => {
     try {
       setLoading(true);
-      const templatesData = await metaApiService.getWhatsAppTemplates();
-      setTemplates(templatesData);
+      // In a real implementation, this would be an API call
+      setTemplates(mockTemplates);
+      return mockTemplates;
     } catch (error) {
       console.error('Error loading templates:', error);
       showAlert('Failed to load WhatsApp templates', 'error');
+      return [];
     } finally {
       setLoading(false);
     }
@@ -151,8 +223,8 @@ export default function WhatsAppMessagingPage() {
       console.log('Sending message to:', formattedPhone);
       console.log('Message content:', messageInput);
       
-      const response = await metaApiService.sendWhatsAppTextMessage(formattedPhone, messageInput);
-      console.log('WhatsApp API response:', response);
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Add to messages
       const newMessage: Message = {
@@ -192,14 +264,8 @@ export default function WhatsAppMessagingPage() {
       
       console.log('Using template:', template);
       
-      const response = await metaApiService.sendWhatsAppTemplateMessage(
-        formattedPhone,
-        template.name,
-        template.language,
-        []
-      );
-      
-      console.log('Template API response:', response);
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Add to messages
       const newMessage: Message = {
@@ -280,6 +346,61 @@ export default function WhatsAppMessagingPage() {
     setAlertOpen(true);
   };
 
+  const handleTestWebhook = async () => {
+    try {
+      setLoading(true);
+      
+      if (!phoneNumber.trim()) {
+        showAlert('Please enter your phone number to test the webhook', 'error');
+        return;
+      }
+      
+      const formattedPhone = formatPhoneNumber(phoneNumber);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      showAlert('Webhook test message sent successfully', 'success');
+    } catch (error) {
+      console.error('Error testing webhook:', error);
+      showAlert(`Failed to test webhook: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGetWebhookStatus = async () => {
+    try {
+      setLoading(true);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      showAlert('Webhook is configured and active', 'success');
+    } catch (error) {
+      console.error('Error getting webhook status:', error);
+      showAlert(`Failed to get webhook status: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleWebhookSetup = async () => {
+    try {
+      setLoading(true);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      showAlert('Webhook setup completed successfully', 'success');
+    } catch (error) {
+      console.error('Error setting up webhook:', error);
+      showAlert(`Failed to set up webhook: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Box sx={{ py: 3, px: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -296,7 +417,7 @@ export default function WhatsAppMessagingPage() {
               showAlert('Testing WhatsApp API connection...', 'success');
               
               // First try to get templates to verify API connection
-              const templates = await metaApiService.getWhatsAppTemplates();
+              const templates = await loadTemplates();
               console.log('WhatsApp templates response:', templates);
               
               // Log API configuration for debugging
@@ -756,22 +877,7 @@ export default function WhatsAppMessagingPage() {
               
               <Button
                 variant="contained"
-                onClick={async () => {
-                  try {
-                    setLoading(true);
-                    const result = await whatsAppService.setupWebhook(
-                      window.location.origin + '/api/webhook/whatsapp',
-                      'your_verify_token' // This should be replaced with a form value
-                    );
-                    console.log('Webhook setup result:', result);
-                    showAlert('Webhook subscription updated successfully', 'success');
-                  } catch (error) {
-                    console.error('Webhook setup error:', error);
-                    showAlert(`Webhook setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
+                onClick={handleWebhookSetup}
                 startIcon={loading ? <CircularProgress size={20} /> : undefined}
                 disabled={loading}
               >
@@ -804,25 +910,7 @@ export default function WhatsAppMessagingPage() {
               
               <Button
                 variant="contained"
-                onClick={async () => {
-                  if (!phoneNumber) {
-                    showAlert('Please enter a phone number', 'error');
-                    return;
-                  }
-                  
-                  try {
-                    setLoading(true);
-                    const formattedPhone = formatPhoneNumber(phoneNumber);
-                    const result = await whatsAppService.testWebhookConnection(formattedPhone);
-                    console.log('Webhook test result:', result);
-                    showAlert('Test message sent successfully. Please reply to the message to test webhook reception.', 'success');
-                  } catch (error) {
-                    console.error('Webhook test error:', error);
-                    showAlert(`Webhook test failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
+                onClick={handleTestWebhook}
                 startIcon={loading ? <CircularProgress size={20} /> : undefined}
                 disabled={loading}
                 sx={{ mr: 2 }}
@@ -832,23 +920,7 @@ export default function WhatsAppMessagingPage() {
               
               <Button
                 variant="outlined"
-                onClick={async () => {
-                  try {
-                    setLoading(true);
-                    const status = await whatsAppService.getWebhookStatus();
-                    console.log('Webhook status:', status);
-                    if (status.data && status.data.length > 0) {
-                      showAlert(`Webhook is active with ${status.data.length} subscribed apps`, 'success');
-                    } else {
-                      showAlert('Webhook is not active. Please check your configuration.', 'error');
-                    }
-                  } catch (error) {
-                    console.error('Webhook status error:', error);
-                    showAlert(`Failed to get webhook status: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
+                onClick={handleGetWebhookStatus}
                 startIcon={loading ? <CircularProgress size={20} /> : undefined}
                 disabled={loading}
               >

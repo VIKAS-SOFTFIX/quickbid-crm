@@ -26,18 +26,75 @@ import {
   LocalOffer as OffersIcon,
   PhoneInTalk as PhoneInTalkIcon,
   Search as SearchIcon,
+  SupervisorAccount as AdminIcon,
+  WhatsApp as WhatsAppIcon,
+  EventNote as EventNoteIcon,
+  QuestionAnswer as WaitlistIcon,
+  Badge as BadgeIcon,
+  VideoCall as VideoCallIcon,
+  Email as EmailIcon,
+  Bookmark as BookmarkIcon,
+  CalendarToday as CalendarIcon,
+  Notifications as NotificationsIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Menu structure with categories
+const menuCategories = [
+  {
+    category: 'Overview',
+    items: [
+      { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard', roles: ['Administrator', 'sales', 'demonstrator'] },
+    ]
+  },
+  {
+    category: 'Pipeline',
+    items: [
+      { text: 'Leads', icon: <PeopleIcon />, path: '/leads', roles: ['Administrator', 'sales'] },
+      { 
+        text: 'Enterprise Requests', 
+        icon: <Badge badgeContent={6} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem', height: 16, minWidth: 16 } }}>
+                <BusinessIcon />
+              </Badge>, 
+        path: '/enterprise-dashboard', 
+        roles: ['Administrator', 'sales', 'demonstrator', 'manager'] 
+      },
+      { text: 'Demo Requests', icon: <VideoCallIcon />, path: '/demo-requests', roles: ['Administrator', 'sales', 'demonstrator'] },
+      { text: 'Callback Requests', icon: <PhoneInTalkIcon />, path: '/callback-requests', roles: ['Administrator', 'sales'] },
+      { text: 'Expert Consultation', icon: <SupportAgentIcon />, path: '/expert-consultation', roles: ['Administrator', 'sales'] },
+      { text: 'Appointments', icon: <CalendarIcon />, path: '/appointments', roles: ['Administrator', 'sales'] },
+      { text: 'Waitlist', icon: <BookmarkIcon />, path: '/waitlist', roles: ['Administrator', 'sales'] },
+    ]
+  },
+  {
+    category: 'Communications',
+    items: [
+      { text: 'Email Marketing', icon: <EmailIcon />, path: '/email-marketing', roles: ['Administrator', 'sales', 'demonstrator'] },
+      { text: 'WhatsApp Messaging', icon: <WhatsAppIcon />, path: '/whatsapp-messaging', roles: ['Administrator', 'sales'] },
+    ]
+  },
+  {
+    category: 'Administration',
+    items: [
+      { text: 'Settings', icon: <SettingsIcon />, path: '/settings', roles: ['Administrator'] },
+      { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications', roles: ['Administrator', 'sales', 'demonstrator', 'manager'] },
+    ]
+  }
+];
+
 export default function Sidebar() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const router = useRouter();
-  const [openPipeline, setOpenPipeline] = useState(true);
-  const { user } = useAuth();
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
+    'Pipeline': true,
+    'Communications': false,
+    'Administration': false
+  });
+  const { user, hasRole } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -46,8 +103,25 @@ export default function Sidebar() {
     setMounted(true);
   }, []);
 
-  const handlePipelineClick = () => {
-    setOpenPipeline(!openPipeline);
+  const handleCategoryClick = (category: string) => {
+    setOpenCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
+  // Log user data to check what we're getting
+  useEffect(() => {
+    if (user) {
+      console.log('User data in Sidebar:', user);
+      console.log('User roles:', user.roles);
+    }
+  }, [user]);
+
+  const userHasRole = (requiredRoles: string[]): boolean => {
+    if (!mounted || !user || !user.roles) return false;
+    
+    return user.roles.some(role => requiredRoles.includes(role));
   };
 
   const drawerWidth = 240;
@@ -58,9 +132,9 @@ export default function Sidebar() {
         <Typography variant="h6" noWrap component="div">
           QuickBid
         </Typography>
-        {mounted && user && (
+        {mounted && user && user.roles && user.roles.length > 0 && (
           <Typography variant="caption" color="text.secondary">
-            {user.role.charAt(0).toUpperCase() + user.role.slice(1)} Role
+            {user.roles[0]} Role
           </Typography>
         )}
       </Box>
@@ -91,161 +165,75 @@ export default function Sidebar() {
       </Box>
       
       <List>
-        <ListItem
-          onClick={() => router.push('/dashboard')}
-          sx={{ 
-            cursor: 'pointer',
-            '&:hover': {
-              backgroundColor: 'action.hover',
-            },
-            display: searchQuery === '' || 'dashboard'.includes(searchQuery.toLowerCase()) ? 'flex' : 'none',
-          }}
-        >
-          <ListItemIcon><DashboardIcon /></ListItemIcon>
-          <ListItemText primary="Dashboard" />
-        </ListItem>
+        {menuCategories.map((category) => {
+          // Filter items based on user roles and search query
+          const filteredItems = category.items.filter(item => 
+            userHasRole(item.roles) && 
+            (searchQuery === '' || item.text.toLowerCase().includes(searchQuery.toLowerCase()))
+          );
 
-        <ListItem
-          onClick={() => router.push('/leads')}
-          sx={{ 
-            cursor: 'pointer',
-            '&:hover': {
-              backgroundColor: 'action.hover',
-            },
-            display: searchQuery === '' || 'leads'.includes(searchQuery.toLowerCase()) ? 'flex' : 'none',
-          }}
-        >
-          <ListItemIcon><PeopleIcon /></ListItemIcon>
-          <ListItemText primary="Leads" />
-        </ListItem>
+          // Skip rendering the category if no items match
+          if (filteredItems.length === 0) return null;
 
-        {/* Pipeline Section - Visible for all roles */}
+          return (
+            <Box key={category.category}>
+              {category.category !== 'Overview' && (
         <ListItemButton 
-          onClick={handlePipelineClick} 
+                  onClick={() => handleCategoryClick(category.category)} 
           sx={{ 
             py: 1,
-            bgcolor: openPipeline ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
+                    bgcolor: openCategories[category.category] ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
             '&:hover': {
               bgcolor: alpha(theme.palette.primary.main, 0.12),
             },
-            display: searchQuery === '' || 'pipeline'.includes(searchQuery.toLowerCase()) || 
-                    'enterprise requests'.includes(searchQuery.toLowerCase()) ||
-                    'demo requests'.includes(searchQuery.toLowerCase()) ||
-                    'call back request'.includes(searchQuery.toLowerCase()) ||
-                    'expert consultation'.includes(searchQuery.toLowerCase()) ? 'flex' : 'none',
           }}
         >
           <ListItemIcon>
-            <AssessmentIcon color={openPipeline ? "primary" : "inherit"} />
+                    {category.category === 'Pipeline' && <AssessmentIcon color={openCategories[category.category] ? "primary" : "inherit"} />}
+                    {category.category === 'Communications' && <EmailIcon color={openCategories[category.category] ? "primary" : "inherit"} />}
+                    {category.category === 'Administration' && <AdminIcon color={openCategories[category.category] ? "primary" : "inherit"} />}
           </ListItemIcon>
           <ListItemText 
-            primary="Pipeline" 
+                    primary={category.category} 
             primaryTypographyProps={{ 
-              fontWeight: openPipeline ? 600 : 400,
-              color: openPipeline ? theme.palette.primary.main : 'inherit' 
+                      fontWeight: openCategories[category.category] ? 600 : 400,
+                      color: openCategories[category.category] ? theme.palette.primary.main : 'inherit' 
             }} 
           />
-          {openPipeline ? <ExpandLess color="primary" /> : <ExpandMore />}
+                  {openCategories[category.category] ? <ExpandLess color="primary" /> : <ExpandMore />}
         </ListItemButton>
-        <Collapse in={openPipeline || searchQuery !== ''} timeout="auto" unmountOnExit>
+              )}
+
+              {/* For Overview category or if the category is expanded */}
+              <Collapse in={category.category === 'Overview' || openCategories[category.category] || searchQuery !== ''} timeout="auto" unmountOnExit>
           <List component="div" disablePadding sx={{ bgcolor: alpha(theme.palette.background.default, 0.5) }}>
+                  {filteredItems.map((item, index) => (
             <ListItemButton 
+                      key={item.text}
               sx={{ 
-                pl: 4,
+                        pl: category.category === 'Overview' ? 2 : 4,
                 py: 1.2,
+                        ...(category.category === 'Pipeline' && index === 0 && {
                 borderLeft: `4px solid ${alpha(theme.palette.primary.main, 0.8)}`,
                 bgcolor: alpha(theme.palette.primary.main, 0.05),
-                '&:hover': {
-                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                },
-                display: searchQuery === '' || 'enterprise requests'.includes(searchQuery.toLowerCase()) ? 'flex' : 'none',
-              }}
-              onClick={() => router.push('/enterprise-dashboard')}
-            >
-              <ListItemIcon>
-                <Badge
-                  badgeContent={6}
-                  color="primary"
-                  sx={{
-                    '& .MuiBadge-badge': {
-                      fontSize: '0.6rem',
-                      height: 16,
-                      minWidth: 16,
-                    }
-                  }}
-                >
-                  <BusinessIcon color="primary" />
-                </Badge>
-              </ListItemIcon>
-              <ListItemText 
-                primary="Enterprise Requests" 
-                primaryTypographyProps={{ fontWeight: 600, color: theme.palette.primary.main }}
-              />
-            </ListItemButton>
-            <ListItemButton 
-              sx={{ 
-                pl: 4,
-                py: 1.2,
+                        }),
                 '&:hover': {
                   bgcolor: alpha(theme.palette.secondary.main, 0.1),
                 },
-                display: searchQuery === '' || 'demo requests'.includes(searchQuery.toLowerCase()) ? 'flex' : 'none',
               }}
-              onClick={() => router.push('/demo-requests')}
+                      onClick={() => router.push(item.path)}
             >
               <ListItemIcon>
-                <OffersIcon />
+                        {item.icon}
               </ListItemIcon>
-              <ListItemText primary="Demo Requests" />
+                      <ListItemText primary={item.text} />
             </ListItemButton>
-            <ListItemButton 
-              sx={{ 
-                pl: 4,
-                py: 1.2,
-                '&:hover': {
-                  bgcolor: alpha(theme.palette.secondary.main, 0.1),
-                },
-                display: searchQuery === '' || 'call back request'.includes(searchQuery.toLowerCase()) || 'callback'.includes(searchQuery.toLowerCase()) ? 'flex' : 'none',
-              }}
-              onClick={() => router.push('/callback-requests')}
-            >
-              <ListItemIcon>
-                <PhoneInTalkIcon />
-              </ListItemIcon>
-              <ListItemText primary="Call Back Request" />
-            </ListItemButton>
-            <ListItemButton 
-              sx={{ 
-                pl: 4,
-                py: 1.2,
-                '&:hover': {
-                  bgcolor: alpha(theme.palette.secondary.main, 0.1),
-                },
-                display: searchQuery === '' || 'expert consultation'.includes(searchQuery.toLowerCase()) ? 'flex' : 'none',
-              }}
-              onClick={() => router.push('/expert-consultation')}
-            >
-              <ListItemIcon>
-                <SupportAgentIcon />
-              </ListItemIcon>
-              <ListItemText primary="Expert Consultation" />
-            </ListItemButton>
+                  ))}
           </List>
         </Collapse>
-
-          <ListItem
-          onClick={() => router.push('/settings')}
-            sx={{ 
-              cursor: 'pointer',
-              '&:hover': {
-                backgroundColor: 'action.hover',
-              },
-            display: searchQuery === '' || 'settings'.includes(searchQuery.toLowerCase()) ? 'flex' : 'none',
-            }}
-          >
-          <ListItemIcon><SettingsIcon /></ListItemIcon>
-          <ListItemText primary="Settings" />
-          </ListItem>
+            </Box>
+          );
+        })}
       </List>
     </Box>
   );

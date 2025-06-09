@@ -33,7 +33,6 @@ import {
   Phone as PhoneIcon,
   Schedule as ScheduleIcon,
 } from '@mui/icons-material';
-import { mockLeads } from '@/services/mockData';
 import { alpha } from '@mui/material/styles';
 import { useRouter } from 'next/navigation';
 
