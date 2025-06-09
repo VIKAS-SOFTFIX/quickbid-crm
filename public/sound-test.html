@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sound Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sound Test Page</h1>
+    <p>This page tests different methods of playing sounds in the browser.</p>
+    <p><strong>Instructions:</strong> Click anywhere on the page first (for user interaction), then try the buttons below.</p>
+    
+    <div>
+        <button id="playWav">Play WAV Sound</button>
+        <button id="playMp3">Play MP3 Sound</button>
+        <button id="playEmbedded">Play Embedded Sound</button>
+        <button id="playWebAudio">Play Web Audio API</button>
+    </div>
+    
+    <div id="status"></div>
+    
+    <!-- Embedded audio elements -->
+    <audio id="embedded-wav" src="/sounds/notification.wav" preload="auto"></audio>
+    <audio id="embedded-mp3" src="/sounds/notification-sound.mp3" preload="auto"></audio>
+    
+    <script>
+        // Status reporting
+        function updateStatus(message, isSuccess = true) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML += `<p class="${isSuccess ? 'success' : 'error'}">${message}</p>`;
+        }
+        
+        // Method 1: Play WAV with Audio API
+        document.getElementById('playWav').addEventListener('click', async () => {
+            try {
+                const audio = new Audio('/sounds/notification.wav');
+                audio.volume = 1.0;
+                await audio.play();
+                updateStatus('WAV played successfully with Audio API');
+            } catch (error) {
+                updateStatus(`Error playing WAV: ${error.message}`, false);
+                console.error('Error playing WAV:', error);
+            }
+        });
+        
+        // Method 2: Play MP3 with Audio API
+        document.getElementById('playMp3').addEventListener('click', async () => {
+            try {
+                const audio = new Audio('/sounds/notification-sound.mp3');
+                audio.volume = 1.0;
+                await audio.play();
+                updateStatus('MP3 played successfully with Audio API');
+            } catch (error) {
+                updateStatus(`Error playing MP3: ${error.message}`, false);
+                console.error('Error playing MP3:', error);
+            }
+        });
+        
+        // Method 3: Play embedded audio element
+        document.getElementById('playEmbedded').addEventListener('click', async () => {
+            try {
+                const audio = document.getElementById('embedded-wav');
+                audio.currentTime = 0;
+                audio.volume = 1.0;
+                await audio.play();
+                updateStatus('Embedded audio played successfully');
+            } catch (error) {
+                updateStatus(`Error playing embedded audio: ${error.message}`, false);
+                console.error('Error playing embedded audio:', error);
+            }
+        });
+        
+        // Method 4: Web Audio API
+        document.getElementById('playWebAudio').addEventListener('click', async () => {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const response = await fetch('/sounds/notification.wav');
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContext.destination);
+                source.start(0);
+                
+                updateStatus('Web Audio API played successfully');
+            } catch (error) {
+                updateStatus(`Error playing Web Audio API: ${error.message}`, false);
+                console.error('Error playing Web Audio API:', error);
+            }
+        });
+    </script>
+</body>
+</html> 

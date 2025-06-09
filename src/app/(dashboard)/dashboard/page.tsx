@@ -63,6 +63,7 @@ import {
   AccountCircle as AccountCircleIcon,
   ArrowForward as ArrowForwardIcon,
   CheckCircle as CheckCircleIcon,
+  Business as BusinessIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -83,6 +84,7 @@ import {
   AreaChart,
 } from 'recharts';
 import { fetchWaitlistUsers } from '@/services/waitlistService';
+import { useRouter } from 'next/navigation';
 
 interface StatCardProps {
   title: string;
@@ -96,6 +98,12 @@ interface StatCardProps {
 const StatCard = ({ title, value, change, icon, color, chartData }: StatCardProps) => {
   const theme = useTheme();
   const isPositive = change >= 0;
+  const [mounted, setMounted] = useState(false);
+
+  // Set mounted to true after initial render
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <Card
@@ -159,27 +167,31 @@ const StatCard = ({ title, value, change, icon, color, chartData }: StatCardProp
         {/* Mini chart */}
         {chartData && (
           <Box sx={{ height: 40, width: '100%', mb: 1 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={chartData}
-                margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id={`colorGradient-${title}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={color} stopOpacity={0.2} />
-                    <stop offset="95%" stopColor={color} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke={color}
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill={`url(#colorGradient-${title})`}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {mounted ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={chartData}
+                  margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id={`colorGradient-${title}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={color} stopOpacity={0.2} />
+                      <stop offset="95%" stopColor={color} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke={color}
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill={`url(#colorGradient-${title})`}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <Skeleton variant="rectangular" width="100%" height="100%" />
+            )}
           </Box>
         )}
 
@@ -314,6 +326,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
+  // Add state to track if component is mounted (client-side)
+  const [mounted, setMounted] = useState(false);
+  const router = useRouter();
 
   // Enhanced color palette
   const colorPalette = {
@@ -325,6 +340,11 @@ export default function DashboardPage() {
     cardBg: '#ffffff',
     chartGrid: '#eaecef',
   };
+
+  // Set mounted to true after initial render
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch waitlist data
   useEffect(() => {
@@ -399,6 +419,14 @@ export default function DashboardPage() {
       icon: <GroupIcon />,
       color: colorPalette.waitlist,
       chartData: generateMiniChartData(150, 30),
+    },
+    {
+      title: 'Enterprise Requests',
+      value: '6',
+      change: 15.8,
+      icon: <BusinessIcon />,
+      color: '#5e35b1', // Purple color
+      chartData: generateMiniChartData(10, 5),
     },
     {
       title: 'Demo Requests',
@@ -644,33 +672,39 @@ export default function DashboardPage() {
               }}
             >
               <Box sx={{ borderBottom: 1, borderColor: alpha(theme.palette.divider, 0.1), px: 3, pt: 2 }}>
-                <Tabs 
-                  value={tabValue} 
-                  onChange={handleTabChange}
-                  variant="scrollable"
-                  scrollButtons="auto"
-                  sx={{
-                    '& .MuiTab-root': {
-                      fontWeight: 600,
-                      fontSize: '0.9rem',
-                      textTransform: 'none',
-                      minWidth: { xs: 'auto', sm: 120 },
-                      px: { xs: 2, sm: 3 },
-                    },
-                    '& .Mui-selected': {
-                      color: theme.palette.primary.main,
-                    },
-                    '& .MuiTabs-indicator': {
-                      backgroundColor: theme.palette.primary.main,
-                      height: 3,
-                      borderRadius: '3px 3px 0 0',
-                    }
-                  }}
-                >
-                  <Tab label="Sales Overview" />
-                  <Tab label="Leads" />
-                  <Tab label="Conversions" />
-                </Tabs>
+                {mounted ? (
+                  <Tabs 
+                    value={tabValue} 
+                    onChange={handleTabChange}
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    sx={{
+                      '& .MuiTab-root': {
+                        fontWeight: 600,
+                        fontSize: '0.9rem',
+                        textTransform: 'none',
+                        minWidth: { xs: 'auto', sm: 120 },
+                        px: { xs: 2, sm: 3 },
+                      },
+                      '& .Mui-selected': {
+                        color: theme.palette.primary.main,
+                      },
+                      '& .MuiTabs-indicator': {
+                        backgroundColor: theme.palette.primary.main,
+                        height: 3,
+                        borderRadius: '3px 3px 0 0',
+                      }
+                    }}
+                  >
+                    <Tab label="Sales Overview" />
+                    <Tab label="Leads" />
+                    <Tab label="Conversions" />
+                  </Tabs>
+                ) : (
+                  <Box sx={{ height: 48, display: 'flex', alignItems: 'center' }}>
+                    <Skeleton variant="text" width={300} height={40} />
+                  </Box>
+                )}
               </Box>
               
               <CardContent sx={{ 
@@ -685,6 +719,10 @@ export default function DashboardPage() {
                 ) : leadData.length === 0 ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
                     <Typography color="text.secondary">No data available</Typography>
+                  </Box>
+                ) : !mounted ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                    <Skeleton variant="rectangular" width="100%" height="100%" />
                   </Box>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">

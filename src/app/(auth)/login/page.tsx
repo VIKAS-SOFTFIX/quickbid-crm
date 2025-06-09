@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -59,6 +59,14 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const theme = useTheme();
+  
+  // Add state to track if component is mounted (client-side)
+  const [mounted, setMounted] = useState(false);
+
+  // After first render (which happens on client), set mounted to true
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +82,11 @@ export default function LoginPage() {
   const handleClickShowPassword = () => {
     setShowPassword(!showPassword);
   };
+
+  // Show a minimal loading state until client-side hydration is complete
+  if (!mounted) {
+    return <div style={{ height: '100vh', width: '100vw' }}></div>;
+  }
 
   return (
     <Box sx={{ 

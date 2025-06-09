@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   Box,
@@ -55,6 +55,7 @@ import {
   KeyboardArrowRight as KeyboardArrowRightIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotification } from '@/contexts/NotificationContext';
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 80;
@@ -71,16 +72,24 @@ const menuCategories = [
     category: 'Pipeline',
     items: [
   { text: 'Leads', icon: <PeopleIcon />, path: '/leads', roles: ['admin', 'sales'] },
+  { 
+    text: 'Enterprise Requests', 
+    icon: <Badge badgeContent={6} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem', height: 16, minWidth: 16 } }}>
+            <BusinessIcon />
+          </Badge>, 
+    path: '/enterprise-dashboard', 
+    roles: ['admin', 'sales', 'demonstrator', 'manager'] 
+  },
+  { text: 'Demo Requests', icon: <VideoCallIcon />, path: '/demo-requests', roles: ['admin', 'sales', 'demonstrator'] },
+  { text: 'Callback Requests', icon: <PhoneInTalkIcon />, path: '/callback-requests', roles: ['admin', 'sales'] },
+  { text: 'Expert Consultation', icon: <SupportAgentIcon />, path: '/expert-consultation', roles: ['admin', 'sales'] },
   { text: 'Appointments', icon: <CalendarIcon />, path: '/appointments', roles: ['admin', 'sales'] },
-      { text: 'Waitlist', icon: <BookmarkIcon />, path: '/waitlist', roles: ['admin', 'sales'] },
+  { text: 'Waitlist', icon: <BookmarkIcon />, path: '/waitlist', roles: ['admin', 'sales'] },
     ]
   },
   {
     category: 'Communications',
     items: [
-  { text: 'Demo Requests', icon: <VideoCallIcon />, path: '/demo-requests', roles: ['admin', 'sales', 'demonstrator'] },
-  { text: 'Callback Requests', icon: <PhoneInTalkIcon />, path: '/callback-requests', roles: ['admin', 'sales'] },
-  { text: 'Expert Consultation', icon: <SupportAgentIcon />, path: '/expert-consultation', roles: ['admin', 'sales'] },
   { text: 'Email Marketing', icon: <EmailIcon />, path: '/email-marketing', roles: ['admin', 'sales', 'demonstrator'] },
   { text: 'WhatsApp Messaging', icon: <WhatsAppIcon />, path: '/whatsapp-messaging', roles: ['admin', 'sales'] },
     ]
@@ -89,6 +98,7 @@ const menuCategories = [
     category: 'Administration',
     items: [
   { text: 'Settings', icon: <SettingsIcon />, path: '/settings', roles: ['admin'] },
+  { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications', roles: ['admin', 'sales', 'demonstrator', 'manager'] },
     ]
   }
 ];
@@ -98,12 +108,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotification();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(true);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [notifications, setNotifications] = useState(3);
+  
+  // Add refs for the drawers
+  const mobileDrawerRef = useRef(null);
+  const desktopDrawerRef = useRef(null);
 
   // Expand the category of the current active path by default
   useEffect(() => {
@@ -350,8 +364,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         },
       }}>
         {menuCategories.map((category) => {
-          // Filter items based on role access
-          const accessibleItems = category.items.filter(item => hasAccess(item.roles));
+          // Filter items based on role access and search query
+          const accessibleItems = category.items.filter(item => 
+            hasAccess(item.roles) && 
+            (searchQuery === '' || 
+             item.text.toLowerCase().includes(searchQuery.toLowerCase()))
+          );
           
           // Skip rendering categories with no accessible items
           if (accessibleItems.length === 0) return null;
@@ -388,7 +406,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </ListItem>
               )}
 
-              <Collapse in={desktopOpen ? expandedCategory === category.category : true}>
+              <Collapse in={desktopOpen ? (searchQuery !== '' || expandedCategory === category.category) : true}>
                 <List sx={{ px: 1.5 }}>
                   {accessibleItems.map((item) => {
                     const isSelected = pathname === item.path;
@@ -579,8 +597,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     bgcolor: alpha(theme.palette.primary.main, 0.1),
                   }
                 }}
+                onClick={() => router.push('/notifications')}
               >
-                <Badge badgeContent={notifications} color="secondary">
+                <Badge badgeContent={unreadCount} color="error">
                   <NotificationsIcon color="action" />
                 </Badge>
               </IconButton>
@@ -685,7 +704,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               boxShadow: '0 4px 20px rgba(0, 32, 74, 0.15)',
             },
           }}
-          ref={undefined}
         >
           {drawer}
         </Drawer>
@@ -705,7 +723,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               }),
             },
           }}
-          ref={undefined}
         >
           {drawer}
         </Drawer>
