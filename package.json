@@ -33,7 +33,7 @@
     "@tiptap/starter-kit": "^2.12.0",
     "@types/js-cookie": "^3.0.6",
     "antd": "^5.14.1",
-    "axios": "^1.8.4",
+    "axios": "^1.9.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
@@ -55,6 +55,7 @@
     "react-hook-form": "^7.54.2",
     "react-is": "^18.2.0",
     "recharts": "^2.15.1",
+    "uuid": "^11.1.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -69,6 +70,7 @@
     "@types/node": "^20.19.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.2.4",
     "nodemon": "^3.1.10",

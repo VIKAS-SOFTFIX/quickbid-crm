@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -40,6 +40,7 @@ import {
   Menu,
   ListItemIcon,
   ListItemText,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -71,6 +72,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, HTMLMotionProps } from 'framer-motion';
+import { fetchLeads, fetchLeadCounts, deleteLead, LeadData } from '@/lib/api';
 
 // Add type for motion div
 type MotionDiv = HTMLMotionProps<'div'>;
@@ -82,7 +84,7 @@ type LeadType = 'enterprise' | 'startup' | 'small_business' | 'individual';
 
 // Define the lead interface
 interface Lead {
-  id: string;
+  _id: any;
   name: string;
   company: string;
   email: string;
@@ -97,106 +99,6 @@ interface Lead {
   notes: string;
   tags: string[];
 }
-
-// Mock data
-const mockLeads: Lead[] = [
-  {
-    id: '1',
-    name: 'John Smith',
-    company: 'Tech Solutions Inc.',
-    email: 'john.smith@techsolutions.com',
-    phone: '+1 (555) 123-4567',
-    status: 'new',
-    source: 'website',
-    type: 'enterprise',
-    assignedTo: 'Sarah Johnson',
-    createdAt: '2024-03-20',
-    lastContact: '2024-03-20',
-    location: 'New York, USA',
-    notes: 'Interested in enterprise features',
-    tags: ['enterprise', 'high-value'],
-  },
-  {
-    id: '2',
-    name: 'Emma Wilson',
-    company: 'Digital Innovations',
-    email: 'emma.wilson@digitalinnovations.com',
-    phone: '+1 (555) 234-5678',
-    status: 'contacted',
-    source: 'referral',
-    type: 'startup',
-    assignedTo: 'Mike Brown',
-    createdAt: '2024-03-19',
-    lastContact: '2024-03-19',
-    location: 'San Francisco, USA',
-    notes: 'Looking for integration capabilities',
-    tags: ['integration', 'startup'],
-  },
-  {
-    id: '3',
-    name: 'Michael Johnson',
-    company: 'Growth Solutions LLC',
-    email: 'michael@growthsolutions.com',
-    phone: '+1 (555) 345-6789',
-    status: 'qualified',
-    source: 'social',
-    type: 'small_business',
-    assignedTo: 'Sarah Johnson',
-    createdAt: '2024-03-18',
-    lastContact: '2024-03-21',
-    location: 'Chicago, USA',
-    notes: 'Ready for product demonstration',
-    tags: ['growth', 'sme'],
-  },
-  {
-    id: '4',
-    name: 'Sarah Chen',
-    company: 'Innovate Technology',
-    email: 'sarah.chen@innovatech.com',
-    phone: '+1 (555) 456-7890',
-    status: 'proposal',
-    source: 'trade_show',
-    type: 'enterprise',
-    assignedTo: 'Mike Brown',
-    createdAt: '2024-03-17',
-    lastContact: '2024-03-19',
-    location: 'Boston, USA',
-    notes: 'Proposal under review by leadership team',
-    tags: ['enterprise', 'high-value'],
-  },
-  {
-    id: '5',
-    name: 'David Thompson',
-    company: 'Nexus Partners',
-    email: 'david@nexuspartners.com',
-    phone: '+1 (555) 567-8901',
-    status: 'negotiation',
-    source: 'referral',
-    type: 'enterprise',
-    assignedTo: 'Sarah Johnson',
-    createdAt: '2024-03-16',
-    lastContact: '2024-03-20',
-    location: 'Seattle, USA',
-    notes: 'Discussing contract terms',
-    tags: ['enterprise', 'priority'],
-  },
-  {
-    id: '6',
-    name: 'Jennifer Martin',
-    company: 'Creative Solutions',
-    email: 'jennifer@creativesolutions.com',
-    phone: '+1 (555) 678-9012',
-    status: 'won',
-    source: 'website',
-    type: 'small_business',
-    assignedTo: 'Mike Brown',
-    createdAt: '2024-03-15',
-    lastContact: '2024-03-22',
-    location: 'Denver, USA',
-    notes: 'Contract signed, onboarding scheduled',
-    tags: ['converted', 'sme'],
-  },
-];
 
 // Helper function to get status color
 const getStatusColor = (status: LeadStatus, theme: Theme) => {
@@ -228,7 +130,8 @@ const formatStatusLabel = (status: LeadStatus) => {
 export default function LeadsPage() {
   const theme = useTheme();
   const router = useRouter();
-  const [leads, setLeads] = useState<Lead[]>(mockLeads);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leadCounts, setLeadCounts] = useState<Record<string, number>>({});
   const [statusFilter, setStatusFilter] = useState<LeadStatus | ''>('');
   const [sourceFilter, setSourceFilter] = useState<LeadSource | ''>('');
   const [typeFilter, setTypeFilter] = useState<LeadType | ''>('');
@@ -237,10 +140,85 @@ export default function LeadsPage() {
   const [endDate, setEndDate] = useState('');
   const [activeTab, setActiveTab] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'table'>('table');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [totalLeads, setTotalLeads] = useState(0);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [filterMenuAnchor, setFilterMenuAnchor] = useState<null | HTMLElement>(null);
   
+  useEffect(() => {
+    loadLeads();
+    loadLeadCounts();
+    console.log('Lead counts:', leadCounts);
+    console.log('Leads:', leads);
+  }, [statusFilter, sourceFilter, typeFilter, searchQuery, page, limit, activeTab]);
+
+  const loadLeads = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Map active tab to status filter if needed
+      let status = statusFilter;
+      if (activeTab === 1) status = 'new';
+      else if (activeTab === 2) status = 'contacted';
+      else if (activeTab === 3) status = 'qualified';
+      else if (activeTab === 4) status = 'proposal';
+      else if (activeTab === 5) status = 'won';
+      
+      const filter = {
+        status,
+        source: sourceFilter,
+        search: searchQuery,
+      };
+      
+      const response = await fetchLeads(filter, page, limit);
+      console.log('Leads response:', response);
+      
+      // Handle the actual API response structure
+      if (response) {
+        // The API returns data directly, not nested in a success/data structure
+        setLeads(response.data || []);
+        setTotalLeads(response.totalCount || 0);
+      } else {
+        console.error('Invalid API response:', response);
+        setError('Failed to load leads data');
+      }
+    } catch (err) {
+      console.error('Error loading leads:', err);
+      setError('An error occurred while loading leads');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadLeadCounts = async () => {
+    try {
+      const response = await fetchLeadCounts();
+      console.log('Lead counts response:', response);
+      if (response) {
+        // The API returns count data directly, not nested in a success/data structure
+        setLeadCounts(response || {});
+      }
+    } catch (err) {
+      console.error('Error loading lead counts:', err);
+    }
+  };
+
+  const handleDeleteLead = async (leadId: string) => {
+    try {
+      await deleteLead(leadId);
+      // Refresh leads after deletion
+      loadLeads();
+      loadLeadCounts();
+    } catch (err) {
+      console.error('Error deleting lead:', err);
+      setError('Failed to delete lead');
+    }
+  };
+
   // Define a color palette to match the dashboard
   const colorPalette = {
     background: '#f9fafc',
@@ -256,6 +234,7 @@ export default function LeadsPage() {
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
+    setPage(1); // Reset to first page when changing tabs
   };
 
   const handleViewModeChange = (
@@ -295,35 +274,17 @@ export default function LeadsPage() {
     setFilterMenuAnchor(null);
   };
 
-  // Filter the leads based on current filters
-  const filteredLeads = leads.filter(lead => {
-    if (statusFilter && lead.status !== statusFilter) return false;
-    if (sourceFilter && lead.source !== sourceFilter) return false;
-    if (typeFilter && lead.type !== typeFilter) return false;
-    
-    // Search query filtering
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchesName = lead.name.toLowerCase().includes(query);
-      const matchesCompany = lead.company.toLowerCase().includes(query);
-      const matchesEmail = lead.email.toLowerCase().includes(query);
-      const matchesAssignedTo = lead.assignedTo.toLowerCase().includes(query);
-      if (!matchesName && !matchesCompany && !matchesEmail && !matchesAssignedTo) {
-        return false;
-      }
-    }
-    
-    return true;
-  });
+  // Use filtered leads from the API response directly
+  const filteredLeads = leads;
 
-  // Get counts for status chips
-  const newLeadsCount = leads.filter(l => l.status === 'new').length;
-  const contactedLeadsCount = leads.filter(l => l.status === 'contacted').length;
-  const qualifiedLeadsCount = leads.filter(l => l.status === 'qualified').length;
-  const proposalLeadsCount = leads.filter(l => l.status === 'proposal').length;
-  const negotiationLeadsCount = leads.filter(l => l.status === 'negotiation').length;
-  const wonLeadsCount = leads.filter(l => l.status === 'won').length;
-  const lostLeadsCount = leads.filter(l => l.status === 'lost').length;
+  // Get counts for status chips from API response
+  const newLeadsCount = leadCounts.new || 0;
+  const contactedLeadsCount = leadCounts.contacted || 0;
+  const qualifiedLeadsCount = leadCounts.qualified || 0;
+  const proposalLeadsCount = leadCounts.proposal || 0;
+  const negotiationLeadsCount = leadCounts.negotiation || 0;
+  const wonLeadsCount = leadCounts.won || 0;
+  const lostLeadsCount = leadCounts.lost || 0;
 
   const renderSkeleton = () => (
     <Grid container spacing={3}>
@@ -384,7 +345,7 @@ export default function LeadsPage() {
               >
                 <Chip 
                   icon={<PeopleAltIcon fontSize="small" />}
-                  label={`Total: ${leads.length}`} 
+                  label={`Total: ${totalLeads}`} 
                   size="small" 
                   sx={{ 
                     bgcolor: alpha(theme.palette.primary.main, 0.1),
@@ -435,6 +396,7 @@ export default function LeadsPage() {
               variant="contained"
               startIcon={<AddIcon />}
               size="medium"
+              onClick={() => router.push('/leads/create')}
               sx={{
                 borderRadius: 2,
                 background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${alpha(theme.palette.primary.dark, 0.85)} 100%)`,
@@ -450,6 +412,13 @@ export default function LeadsPage() {
           </Grid>
         </Grid>
       </Box>
+
+      {/* Display error if any */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
       {/* Filter and tabs section */}
       <Box 
@@ -728,14 +697,14 @@ export default function LeadsPage() {
       ) : viewMode === 'grid' ? (
         <Grid container spacing={3}>
           {filteredLeads.map((lead, index) => (
-            <Grid item xs={12} sm={6} md={4} key={lead.id}>
+            <Grid item xs={12} sm={6} md={4} key={lead._id}>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
                 <Card
-                  sx={{
+                  sx={{ 
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
@@ -751,7 +720,7 @@ export default function LeadsPage() {
                       transform: 'translateY(-4px)',
                     },
                   }}
-                  onClick={() => handleLeadClick(lead.id)}
+                  onClick={() => handleLeadClick(lead._id)}
                 >
                   {lead.status === 'won' && (
                     <Box
@@ -854,7 +823,7 @@ export default function LeadsPage() {
         <Stack spacing={2}>
           {filteredLeads.map((lead, index) => (
             <motion.div
-              key={lead.id}
+              key={lead._id}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.05 }}
@@ -873,7 +842,7 @@ export default function LeadsPage() {
                     transform: 'translateX(4px)',
                   },
                 }}
-                onClick={() => handleLeadClick(lead.id)}
+                onClick={() => handleLeadClick(lead._id)}
               >
                 <Box sx={{ 
                   width: 8, 
@@ -961,9 +930,9 @@ export default function LeadsPage() {
               <TableBody>
                 {filteredLeads.map((lead, index) => (
                   <TableRow 
-                    key={lead.id}
+                      key={lead._id}
                     hover
-                    onClick={() => handleLeadClick(lead.id)}
+                    onClick={() => handleLeadClick(lead._id)}
                     sx={{ 
                       cursor: 'pointer',
                       '&:hover': {

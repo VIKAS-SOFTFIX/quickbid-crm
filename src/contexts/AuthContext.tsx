@@ -3,7 +3,10 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { login as apiLogin, logout as apiLogout, getProfile, UserProfile } from '../services/authService';
+import { login as apiLogin, logout as apiLogout, getProfile, UserProfile, LoginResponse } from '../services/authService';
+
+// Update the cookie name to match what the server sends
+const USER_COOKIE_NAME = 'user';
 
 interface User {
   id: string;
@@ -16,7 +19,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<LoginResponse>;
   logout: () => void;
   isLoading: boolean;
   hasPermission: (permission: string) => boolean;
@@ -31,17 +34,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // Check for existing user data in cookies
-    const userData = Cookies.get('user');
-    const token = Cookies.get('auth_token');
+    // Check for existing user data in cookies or localStorage
+    let userData = Cookies.get(USER_COOKIE_NAME);
     
-    if (userData && token) {
+    // If not found in cookies, try localStorage
+    if (typeof window !== 'undefined' && !userData) {
+      const localStorageUser = localStorage.getItem(USER_COOKIE_NAME);
+      if (localStorageUser) {
+        userData = localStorageUser;
+        // Sync to cookies
+        Cookies.set(USER_COOKIE_NAME, localStorageUser);
+      }
+    }
+    
+    if (userData) {
       try {
         setUser(JSON.parse(userData));
       } catch (error) {
         console.error('Error parsing user data:', error);
-        Cookies.remove('user');
-        Cookies.remove('auth_token');
+        Cookies.remove(USER_COOKIE_NAME);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(USER_COOKIE_NAME);
+        }
       }
     }
     setIsLoading(false);
@@ -55,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.success) {
         setUser(response.data.user);
         router.push('/dashboard');
+        return response;
       } else {
         throw new Error('Login failed');
       }

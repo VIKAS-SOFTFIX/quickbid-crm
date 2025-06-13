@@ -24,8 +24,8 @@ import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('superadmin@quickbid.com');
+  const [password, setPassword] = useState('QB#Super$Admin@2023!');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
@@ -45,7 +45,11 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await login(email, password);
+      const response = await login(email, password);
+      
+      // The token is already being stored in the authService login function
+      // No need to manually set it here
+      
     } catch (err) {
       setError('Invalid email or password');
     }
@@ -280,6 +284,19 @@ export default function LoginPage() {
             >
               Sign In
             </Button>
+            
+            <Typography 
+              variant="caption" 
+              align="center" 
+              color="text.secondary"
+              sx={{ 
+                display: 'block',
+                mb: 2,
+                fontStyle: 'italic'
+              }}
+            >
+              Default credentials are pre-filled for demo purposes
+            </Typography>
           </Box>
         </Paper>
       </Box>

@@ -1,99 +1,35 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
   Typography,
-  Grid,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  ListItemSecondaryAction,
-  Switch,
-  Button,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Divider,
-  IconButton,
   Tabs,
   Tab,
+  Snackbar,
+  Alert,
+  Grid,
   Card,
   CardContent,
-  Alert,
-  Snackbar,
+  Container,
+  Breadcrumbs,
+  Link,
   useTheme,
   alpha,
 } from '@mui/material';
-import {
-  Person,
-  Security,
-  Notifications,
-  Email,
-  WhatsApp,
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Description as DescriptionIcon,
-  Settings as SettingsIcon,
-  AccountCircle as AccountCircleIcon,
-  EmailOutlined as EmailOutlinedIcon,
-  Article as ArticleIcon,
-  SupervisorAccount as SupervisorAccountIcon,
-  CloudUpload as CloudUploadIcon,
-  Apps as AppsIcon,
-} from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import SettingsIcon from '@mui/icons-material/Settings';
+import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
+import ArticleIcon from '@mui/icons-material/Article';
+import HomeIcon from '@mui/icons-material/Home';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import { useSearchParams } from 'next/navigation';
 
-// Sample data - replace with real data from your API
-const users = [
-  {
-    id: 1,
-    name: 'Sarah Smith',
-    email: 'sarah@quickbid.co.in',
-    role: 'Admin',
-    status: 'Active',
-  },
-  {
-    id: 2,
-    name: 'Mike Johnson',
-    email: 'mike@quickbid.co.in',
-    role: 'Sales Manager',
-    status: 'Active',
-  },
-  {
-    id: 3,
-    name: 'Emily Brown',
-    email: 'emily@quickbid.co.in',
-    role: 'Sales Representative',
-    status: 'Active',
-  },
-];
-
-const roles = ['Admin', 'Sales Manager', 'Sales Representative'];
-
-// Define interfaces for type safety
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  status: string;
-}
-
-interface NewUser {
-  name: string;
-  email: string;
-  role: string;
-}
+import UserManagement from '@/app/(dashboard)/settings/components/UserManagement/index';
+import SystemSettings from '@/app/(dashboard)/settings/components/SystemSettings';
+import EmailNotifications from '@/app/(dashboard)/settings/components/EmailNotifications';
+import ResourceManagement from '@/app/(dashboard)/settings/components/ResourceManagement';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -111,9 +47,10 @@ function TabPanel(props: TabPanelProps) {
       id={`settings-tabpanel-${index}`}
       aria-labelledby={`settings-tab-${index}`}
       {...other}
+      style={{ width: '100%' }}
     >
       {value === index && (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ pt: 4 }}>
           {children}
         </Box>
       )}
@@ -122,36 +59,28 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function SettingsPage() {
-  const router = useRouter();
   const theme = useTheme();
+  const searchParams = useSearchParams();
   const [tabValue, setTabValue] = useState(0);
-  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
-  const [newUser, setNewUser] = useState<NewUser>({
-    name: '',
-    email: '',
-    role: '',
-  });
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'success' as 'success' | 'error' | 'info' | 'warning',
   });
 
+  // Handle tab selection from URL parameters
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) {
+      const tabIndex = parseInt(tab, 10);
+      if (!isNaN(tabIndex) && tabIndex >= 0 && tabIndex < tabOptions.length) {
+        setTabValue(tabIndex);
+      }
+    }
+  }, [searchParams]);
+
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
-  };
-
-  const handleAddUser = () => {
-    // Handle adding new user
-    setIsAddUserDialogOpen(false);
-    setNewUser({ name: '', email: '', role: '' });
-    
-    // Show success message
-    setSnackbar({
-      open: true,
-      message: 'User added successfully',
-      severity: 'success',
-    });
   };
 
   const handleCloseSnackbar = () => {
@@ -161,467 +90,179 @@ export default function SettingsPage() {
     });
   };
 
-  const navigateToResources = () => {
-    router.push('/admin/settings/resources');
+  const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+    setSnackbar({
+      open: true,
+      message,
+      severity,
+    });
   };
 
-  return (
-    <Box>
-      <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h4">
-          Settings
-        </Typography>
-      </Box>
+  const tabOptions = [
+    { 
+      icon: <AccountCircleIcon />, 
+      label: 'User Management',
+      description: 'Manage users, roles, and permissions' 
+    },
+    { 
+      icon: <SettingsIcon />, 
+      label: 'System',
+      description: 'Configure system settings and view API tokens' 
+    },
+    { 
+      icon: <EmailOutlinedIcon />, 
+      label: 'Email & Notifications',
+      description: 'Set up email templates and notification preferences' 
+    },
+    { 
+      icon: <ArticleIcon />, 
+      label: 'Resources',
+      description: 'Manage application resources and assets' 
+    },
+  ];
 
-      <Paper elevation={0} variant="outlined">
-        <Tabs 
-          value={tabValue} 
-          onChange={handleTabChange} 
-          variant="scrollable"
-          scrollButtons="auto"
+  return (
+    <Container maxWidth={false} disableGutters sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
+      {/* Breadcrumbs */}
+      <Breadcrumbs 
+        separator={<NavigateNextIcon fontSize="small" />} 
+        aria-label="breadcrumb"
+        sx={{ mb: 3 }}
+      >
+        <Link 
+          color="inherit" 
+          href="/dashboard" 
           sx={{ 
-            borderBottom: 1, 
-            borderColor: 'divider',
-            px: 2,
+            display: 'flex', 
+            alignItems: 'center',
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline' }
           }}
         >
-          <Tab 
-            icon={<AccountCircleIcon />} 
-            iconPosition="start" 
-            label="User Management" 
-          />
-          <Tab 
-            icon={<SettingsIcon />} 
-            iconPosition="start" 
-            label="System" 
-          />
-          <Tab 
-            icon={<EmailOutlinedIcon />} 
-            iconPosition="start" 
-            label="Email & Notifications" 
-          />
-          <Tab 
-            icon={<ArticleIcon />} 
-            iconPosition="start" 
-            label="Resources" 
-          />
-        </Tabs>
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+          Dashboard
+        </Link>
+        <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
+          <SettingsIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+          Settings
+        </Typography>
+      </Breadcrumbs>
 
-        {/* User Management Tab */}
-        <TabPanel value={tabValue} index={0}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h6">
-              <SupervisorAccountIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-              User Management
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setIsAddUserDialogOpen(true)}
-            >
-              Add User
-            </Button>
-          </Box>
+      {/* Page Header */}
+      <Box 
+        sx={{ 
+          mb: 4, 
+          display: 'flex', 
+          flexDirection: { xs: 'column', md: 'row' },
+          alignItems: { xs: 'flex-start', md: 'center' }, 
+          justifyContent: 'space-between',
+          gap: 2
+        }}
+      >
+        <Box>
+          <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary', mb: 1 }}>
+            Settings
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Configure your QuickBid CRM system preferences and user access
+          </Typography>
+        </Box>
+      </Box>
 
-          <Paper elevation={0} variant="outlined">
-            <List sx={{ width: '100%' }}>
-              {users.map((user, index) => (
-                <>
-                  <ListItem
-                    key={user.id}
-                    sx={{
-                      '&:hover': {
-                        backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                      },
-                    }}
-                  >
-                    <ListItemIcon>
-                      <Person />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={user.name}
-                      secondary={`${user.email} • ${user.role}`}
-                    />
-                    <ListItemSecondaryAction>
-                      <IconButton edge="end" sx={{ mr: 1 }}>
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton edge="end">
-                        <DeleteIcon />
-                      </IconButton>
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                  {index < users.length - 1 && <Divider component="li" />}
-                </>
-              ))}
-            </List>
-          </Paper>
-        </TabPanel>
-
-        {/* System Settings Tab */}
-        <TabPanel value={tabValue} index={1}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h6">
-              <SettingsIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-              System Settings
-            </Typography>
-          </Box>
-
-          <Paper elevation={0} variant="outlined">
-            <List sx={{ width: '100%' }}>
-              <ListItem>
-                <ListItemIcon>
-                  <Security />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Two-Factor Authentication"
-                  secondary="Enable additional security for user accounts"
-                />
-                <ListItemSecondaryAction>
-                  <Switch />
-                </ListItemSecondaryAction>
-              </ListItem>
-              <Divider component="li" />
-              <ListItem>
-                <ListItemIcon>
-                  <Notifications />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Email Notifications"
-                  secondary="Receive notifications about new leads and updates"
-                />
-                <ListItemSecondaryAction>
-                  <Switch defaultChecked />
-                </ListItemSecondaryAction>
-              </ListItem>
-              <Divider component="li" />
-              <ListItem>
-                <ListItemIcon>
-                  <WhatsApp />
-                </ListItemIcon>
-                <ListItemText
-                  primary="WhatsApp Integration"
-                  secondary="Enable WhatsApp notifications and messaging"
-                />
-                <ListItemSecondaryAction>
-                  <Switch />
-                </ListItemSecondaryAction>
-              </ListItem>
-              <Divider component="li" />
-              <ListItem>
-                <ListItemIcon>
-                  <AppsIcon />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Enable Demo Request Feature"
-                  secondary="Allow users to request product demonstrations"
-                />
-                <ListItemSecondaryAction>
-                  <Switch defaultChecked />
-                </ListItemSecondaryAction>
-              </ListItem>
-            </List>
-          </Paper>
-        </TabPanel>
-
-        {/* Email & Notifications Tab */}
-        <TabPanel value={tabValue} index={2}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h6">
-              <EmailOutlinedIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-              Email & Notification Settings
-            </Typography>
-          </Box>
-
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Paper elevation={0} variant="outlined" sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Email Configuration
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="SMTP Server"
-                      defaultValue="smtp.quickbid.co.in"
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="SMTP Port"
-                      defaultValue="587"
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Email Username"
-                      defaultValue="noreply@quickbid.co.in"
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Password"
-                      type="password"
-                      defaultValue="********"
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth>
-                      <InputLabel>Encryption</InputLabel>
-                      <Select
-                        defaultValue="tls"
-                        label="Encryption"
-                      >
-                        <MenuItem value="none">None</MenuItem>
-                        <MenuItem value="ssl">SSL</MenuItem>
-                        <MenuItem value="tls">TLS</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Button variant="contained" fullWidth>
-                      Test Email Configuration
-                    </Button>
-                  </Grid>
-                </Grid>
-              </Paper>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Paper elevation={0} variant="outlined" sx={{ p: 3, height: '100%' }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Notification Templates
-                </Typography>
-                <List>
-                  <ListItem 
-                    sx={{
-                      cursor: 'pointer',
-                      '&:hover': {
-                        backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                      },
-                    }}
-                    onClick={() => {
-                      // Handle edit notification template
-                    }}
-                  >
-                    <ListItemIcon>
-                      <DescriptionIcon />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="New Lead Notification" 
-                      secondary="Template for new lead notifications"
-                    />
-                    <IconButton>
-                      <EditIcon />
-                    </IconButton>
-                  </ListItem>
-                  <Divider component="li" />
-                  <ListItem 
-                    sx={{
-                      cursor: 'pointer',
-                      '&:hover': {
-                        backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                      },
-                    }}
-                    onClick={() => {
-                      // Handle edit notification template
-                    }}
-                  >
-                    <ListItemIcon>
-                      <DescriptionIcon />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Demo Request Confirmation" 
-                      secondary="Email sent when a demo is requested"
-                    />
-                    <IconButton>
-                      <EditIcon />
-                    </IconButton>
-                  </ListItem>
-                  <Divider component="li" />
-                  <ListItem 
-                    sx={{
-                      cursor: 'pointer',
-                      '&:hover': {
-                        backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                      },
-                    }}
-                    onClick={() => {
-                      // Handle edit notification template
-                    }}
-                  >
-                    <ListItemIcon>
-                      <DescriptionIcon />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Follow-up Reminder" 
-                      secondary="Notification for sales follow-ups"
-                    />
-                    <IconButton>
-                      <EditIcon />
-                    </IconButton>
-                  </ListItem>
-                </List>
-              </Paper>
-            </Grid>
-          </Grid>
-        </TabPanel>
-
-        {/* Resources Tab */}
-        <TabPanel value={tabValue} index={3}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h6">
-              <ArticleIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-              Resource Management
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<CloudUploadIcon />}
-              onClick={navigateToResources}
-            >
-              Manage Resources
-            </Button>
-          </Box>
-
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
-              <Card 
-                variant="outlined" 
-                sx={{ 
-                  height: '100%',
-                  cursor: 'pointer',
-                  '&:hover': {
-                    boxShadow: theme.shadows[4],
-                    transform: 'translateY(-4px)',
-                    transition: 'all 0.2s ease-in-out',
+      {/* Settings Layout */}
+      <Grid container spacing={3}>
+        {/* Left sidebar with tabs */}
+        <Grid item xs={12} md={3}>
+          <Card 
+            elevation={0} 
+            sx={{ 
+              borderRadius: 2,
+              overflow: 'hidden',
+              border: `1px solid ${alpha(theme.palette.divider, 0.7)}`,
+            }}
+          >
+            <CardContent sx={{ p: 0 }}>
+              <Tabs
+                orientation="vertical"
+                value={tabValue}
+                onChange={handleTabChange}
+                aria-label="Settings tabs"
+                sx={{
+                  '& .MuiTab-root': {
+                    alignItems: 'flex-start',
+                    textAlign: 'left',
+                    py: 2.5,
+                    px: 3,
+                    minHeight: 'auto',
+                    borderLeft: '3px solid transparent',
+                    '&.Mui-selected': {
+                      color: theme.palette.primary.main,
+                      borderLeft: `3px solid ${theme.palette.primary.main}`,
+                      backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                    },
+                  },
+                  '& .MuiTabs-indicator': {
+                    display: 'none',
                   },
                 }}
-                onClick={navigateToResources}
               >
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <DescriptionIcon color="primary" sx={{ fontSize: 48, mr: 2 }} />
-                    <Typography variant="h6">
-                      Demo Scripts
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Manage and organize scripts for product demonstrations, including feature walkthroughs and presentations.
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            
-            <Grid item xs={12} md={4}>
-              <Card 
-                variant="outlined" 
-                sx={{ 
-                  height: '100%',
-                  cursor: 'pointer',
-                  '&:hover': {
-                    boxShadow: theme.shadows[4],
-                    transform: 'translateY(-4px)',
-                    transition: 'all 0.2s ease-in-out',
-                  },
-                }}
-                onClick={navigateToResources}
-              >
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <ArticleIcon color="secondary" sx={{ fontSize: 48, mr: 2 }} />
-                    <Typography variant="h6">
-                      Call Scripts
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Upload and manage scripts for sales calls, cold calling, and lead follow-ups with objection handling guidelines.
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            
-            <Grid item xs={12} md={4}>
-              <Card 
-                variant="outlined" 
-                sx={{ 
-                  height: '100%',
-                  cursor: 'pointer',
-                  '&:hover': {
-                    boxShadow: theme.shadows[4],
-                    transform: 'translateY(-4px)',
-                    transition: 'all 0.2s ease-in-out',
-                  },
-                }}
-                onClick={navigateToResources}
-              >
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <CloudUploadIcon color="info" sx={{ fontSize: 48, mr: 2 }} />
-                    <Typography variant="h6">
-                      Training Materials
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Upload and organize training materials, guides, and videos for sales team onboarding and skill development.
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </TabPanel>
-      </Paper>
+                {tabOptions.map((tab, index) => (
+                  <Tab
+                    key={index}
+                    icon={tab.icon}
+                    iconPosition="start"
+                    label={
+                      <Box sx={{ textAlign: 'left', ml: 1 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                          {tab.label}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          {tab.description}
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                ))}
+              </Tabs>
+            </CardContent>
+          </Card>
+        </Grid>
 
-      {/* Add User Dialog */}
-      <Dialog open={isAddUserDialogOpen} onClose={() => setIsAddUserDialogOpen(false)}>
-        <DialogTitle>Add New User</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Name"
-                value={newUser.name}
-                onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                value={newUser.email}
-                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Role</InputLabel>
-                <Select
-                  value={newUser.role}
-                  label="Role"
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as string })}
-                >
-                  {roles.map((role) => (
-                    <MenuItem key={role} value={role}>
-                      {role}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsAddUserDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddUser} variant="contained">
-            Add User
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {/* Main content area */}
+        <Grid item xs={12} md={9}>
+          <Card 
+            elevation={0} 
+            sx={{ 
+              borderRadius: 2,
+              overflow: 'hidden',
+              border: `1px solid ${alpha(theme.palette.divider, 0.7)}`,
+              height: '100%',
+            }}
+          >
+            <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+              {/* User Management Tab */}
+              <TabPanel value={tabValue} index={0}>
+                <UserManagement showSnackbar={showSnackbar} />
+              </TabPanel>
+
+              {/* System Settings Tab */}
+              <TabPanel value={tabValue} index={1}>
+                <SystemSettings showSnackbar={showSnackbar} />
+              </TabPanel>
+
+              {/* Email & Notifications Tab */}
+              <TabPanel value={tabValue} index={2}>
+                <EmailNotifications showSnackbar={showSnackbar} />
+              </TabPanel>
+
+              {/* Resources Tab */}
+              <TabPanel value={tabValue} index={3}>
+                <ResourceManagement />
+              </TabPanel>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       <Snackbar
         open={snackbar.open}
@@ -629,10 +270,18 @@ export default function SettingsPage() {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ 
+            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+            '& .MuiAlert-icon': { alignItems: 'center' }
+          }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </Container>
   );
 } 
