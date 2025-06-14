@@ -90,6 +90,7 @@ const menuCategories = [
   {
     category: 'Communications',
     items: [
+      { text: 'Mail Box', icon: <EmailIcon />, path: '/communications/mailbox', roles: ['Administrator', 'sales', 'demonstrator'] },
       { text: 'Email Marketing', icon: <EmailIcon />, path: '/email-marketing', roles: ['Administrator', 'sales', 'demonstrator'] },
       { text: 'WhatsApp Messaging', icon: <WhatsAppIcon />, path: '/whatsapp-messaging', roles: ['Administrator', 'sales'] },
     ]
