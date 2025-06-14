@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -84,7 +84,7 @@ interface Lead {
   status: LeadStatus;
   source: LeadSource;
   type: LeadType;
-  assignedTo: string;
+  assignedTo: string;  // Keep as string, but handle potential object type safely
   createdAt: string;
   lastContact: string;
   location: string;
@@ -118,30 +118,40 @@ interface LeadActivity {
   };
 }
 
-const getStatusColor = (status: LeadStatus) => {
+// Move function outside of component to avoid React hooks rules violation
+const useStatusColor = () => {
   const theme = useTheme();
-  switch (status) {
-    case 'new':
-      return theme.palette.info.main;
-    case 'contacted':
-      return theme.palette.warning.main;
-    case 'qualified':
-      return theme.palette.success.main;
-    case 'proposal':
-      return theme.palette.primary.main;
-    case 'negotiation':
-      return theme.palette.secondary.main;
-    case 'won':
-      return theme.palette.success.dark;
-    case 'lost':
-      return theme.palette.error.main;
-    default:
-      return theme.palette.grey[500];
-  }
+  
+  return (status: LeadStatus) => {
+    switch (status) {
+      case 'new':
+        return theme.palette.info.main;
+      case 'contacted':
+        return theme.palette.warning.main;
+      case 'qualified':
+        return theme.palette.success.main;
+      case 'proposal':
+        return theme.palette.primary.main;
+      case 'negotiation':
+        return theme.palette.secondary.main;
+      case 'won':
+        return theme.palette.success.dark;
+      case 'lost':
+        return theme.palette.error.main;
+      default:
+        return theme.palette.grey[500];
+    }
+  };
 };
 
 export default function LeadDetailPage({ params }: { params: { id: string } }) {
+  // Don't use React.use() as it's causing TypeScript errors
+  // Just access params directly, but update the dependency in the useEffect
+  const leadId = params.id;
+
   const theme = useTheme();
+  const getStatusColor = useStatusColor();
+  
   const [activeTab, setActiveTab] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [timelineFilter, setTimelineFilter] = useState('');
@@ -168,6 +178,23 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
   const [newActivityType, setNewActivityType] = useState<'call' | 'email' | 'meeting' | 'note'>('note');
   const [newActivityDescription, setNewActivityDescription] = useState('');
 
+  // Helper function to handle assignedTo which might be an object or string
+  const getAssignedToString = (assignedTo: any): string => {
+    if (!assignedTo) return '';
+    if (typeof assignedTo === 'string') return assignedTo;
+    if (typeof assignedTo === 'object') {
+      // If it's an object, try to get a name property or stringify it
+      return assignedTo.name || assignedTo.email || JSON.stringify(assignedTo);
+    }
+    return String(assignedTo);
+  };
+
+  // Helper function to get first character from assignedTo
+  const getAssignedToInitial = (assignedTo: any): string => {
+    const str = getAssignedToString(assignedTo);
+    return str ? str.charAt(0).toUpperCase() : 'U';
+  };
+
   // Fetch lead details
   useEffect(() => {
     const fetchLeadDetails = async () => {
@@ -176,7 +203,7 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
         setError(null);
         
         // Use _id for MongoDB compatibility
-        const leadData = await fetchLeadById(params.id);
+        const leadData = await fetchLeadById(leadId);
         console.log('Lead details:', leadData);
         
         if (leadData) {
@@ -189,7 +216,7 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
             status: leadData.status,
             source: leadData.source,
             type: leadData.type,
-            assignedTo: leadData.assignedTo,
+            assignedTo: getAssignedToString(leadData.assignedTo),
             createdAt: leadData.createdAt,
             lastContact: leadData.lastContact || leadData.updatedAt,
             location: leadData.location,
@@ -217,10 +244,10 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
       }
     };
 
-    if (params.id) {
+    if (leadId) {
       fetchLeadDetails();
     }
-  }, [params.id]);
+  }, [leadId]);
 
   // Fetch lead activities
   useEffect(() => {
@@ -930,7 +957,7 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
                               alt={lead.assignedTo}
                               sx={{ width: 32, height: 32 }}
                             >
-                              {lead.assignedTo ? lead.assignedTo.charAt(0).toUpperCase() : 'U'}
+                              {getAssignedToInitial(lead.assignedTo)}
                             </Avatar>
                             <Typography variant="body1">{lead.assignedTo}</Typography>
                             <Tooltip title="Change assignment">

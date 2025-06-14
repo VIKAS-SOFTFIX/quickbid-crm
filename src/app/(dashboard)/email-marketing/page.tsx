@@ -34,6 +34,7 @@ import {
   Tooltip,
   styled,
   useTheme,
+  SelectChangeEvent,
 } from '@mui/material';
 import {
   Email as EmailIcon,
@@ -227,6 +228,7 @@ export default function EmailMarketingPage() {
     htmlContent: '',
     recipients: [] as {address: string}[],
     senderAddress: "DoNotReply@56b2a9ef-273e-4a4f-8036-92dd766e8f7a.azurecomm.net", // Azure Communication Services domain
+    connectionString: "endpoint=https://aes-qb-mkt.india.communication.azure.com/;accesskey=AM9HFoZ4F8tnrZi0iav8Sp58z84CCKyTTL2O5YzLkQnCZIFnlmIBJQQJ99BEACULyCph9wJ9AAAAAZCSAlxs", // Azure Communication Services connection string
     attachments: [] as File[],
   });
   const [recipientInput, setRecipientInput] = useState('');
@@ -234,6 +236,36 @@ export default function EmailMarketingPage() {
   const [selectedLeads, setSelectedLeads] = useState<{id: string, email: string, name: string}[]>([]);
   const [fileUploadError, setFileUploadError] = useState('');
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+
+  // Add states for hierarchical selection
+  const [states, setStates] = useState<string[]>(['Test State', 'Karnataka', 'Maharashtra']);
+  const [selectedState, setSelectedState] = useState<string>('');
+  const [categories, setCategories] = useState<string[]>(['Test Category', 'Electronics', 'Furniture', 'Vehicles']);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [districts, setDistricts] = useState<string[]>(['Test District', 'Bangalore Urban', 'Mumbai', 'Pune']);
+  const [selectedDistrict, setSelectedDistrict] = useState<string>('');
+  const [batches, setBatches] = useState<string[]>(['Batch 1', 'Batch 2', 'Batch 3']);
+  const [selectedBatch, setSelectedBatch] = useState<string>('');
+
+  // Test emails by batch with proper type
+  interface TestEmailsType {
+    [key: string]: { id: string; email: string; name: string }[];
+  }
+
+  const testEmails: TestEmailsType = {
+    'Batch 1': [
+      // { id: '1', email: 'vermakas99@gmail.com', name: 'VIKAS KUMAR VERMA' },
+      { id: '1', email: 'anuj@toplogic.in', name: 'Anuj' },
+      { id: '2', email: 'Info@toplogic.in', name: 'Info' },
+      { id: '3', email: 'avinash@toplogic.in', name: 'Avinash' },
+      { id: '4', email: 'anuj@quickbid.co.in', name: 'Anuj QB' },
+      { id: '5', email: 'vikas@quickbid.co.in', name: 'Vikas' },
+      { id: '6', email: 'anujkax@yahoo.com', name: 'Anuj Yahoo' },
+      { id: '7', email: 'anujkax@gmail.com', name: 'Anuj Gmail' },
+    ],
+    'Batch 2': [],
+    'Batch 3': [],
+  };
 
   // Initialize TipTap editor
   const editor = useEditor({
@@ -270,12 +302,48 @@ export default function EmailMarketingPage() {
   useEffect(() => {
     // In a real implementation, you would fetch leads from your API
     setAvailableLeads([
-      { id: '1', email: 'lead1@example.com', name: 'John Doe' },
-      { id: '2', email: 'lead2@example.com', name: 'Jane Smith' },
-      { id: '3', email: 'lead3@example.com', name: 'Bob Johnson' },
-      // Add more mock leads as needed
+      // { id: '1', email: 'vermakas99@gmail.com', name: 'VIKAS KUMAR VERMA' },
+      { id: '1', email: 'anuj@toplogic.in', name: 'Anuj' },
+      { id: '2', email: 'Info@toplogic.in', name: 'Info' },
+      { id: '3', email: 'avinash@toplogic.in', name: 'Avinash' },
+      { id: '4', email: 'anuj@quickbid.co.in', name: 'Anuj QB' },
+      { id: '5', email: 'vikas@quickbid.co.in', name: 'Vikas' },
+      { id: '6', email: 'anujkax@yahoo.com', name: 'Anuj Yahoo' },
+      { id: '7', email: 'anujkax@gmail.com', name: 'Anuj Gmail' },
     ]);
   }, []);
+
+  // Handle batch selection and auto-select corresponding emails
+  useEffect(() => {
+    if (selectedBatch && testEmails[selectedBatch]) {
+      setSelectedLeads(testEmails[selectedBatch]);
+    }
+  }, [selectedBatch]);
+
+  const handleStateChange = (event: SelectChangeEvent) => {
+    setSelectedState(event.target.value);
+    setSelectedCategory('');
+    setSelectedDistrict('');
+    setSelectedBatch('');
+    setSelectedLeads([]);
+  };
+
+  const handleCategoryChange = (event: SelectChangeEvent) => {
+    setSelectedCategory(event.target.value);
+    setSelectedDistrict('');
+    setSelectedBatch('');
+    setSelectedLeads([]);
+  };
+
+  const handleDistrictChange = (event: SelectChangeEvent) => {
+    setSelectedDistrict(event.target.value);
+    setSelectedBatch('');
+    setSelectedLeads([]);
+  };
+
+  const handleBatchChange = (event: SelectChangeEvent) => {
+    setSelectedBatch(event.target.value);
+  };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -298,10 +366,6 @@ export default function EmailMarketingPage() {
       ...emailData,
       recipients: updatedRecipients
     });
-  };
-
-  const handleLeadSelection = (event: any, value: any) => {
-    setSelectedLeads(value);
   };
 
   const handleAddSelectedLeads = () => {
@@ -450,29 +514,46 @@ export default function EmailMarketingPage() {
 
     setLoading(true);
     try {
-      // Create form data for file uploads
-      const formData = new FormData();
-      formData.append('subject', emailData.subject);
-      formData.append('plainText', emailData.plainText);
-      formData.append('htmlContent', emailData.htmlContent);
-      formData.append('senderAddress', emailData.senderAddress);
-      formData.append('recipients', JSON.stringify(emailData.recipients));
-      
-      // Add attachments
-      emailData.attachments.forEach((file, index) => {
-        formData.append(`attachment_${index}`, file);
-      });
-      
+      // Format data according to API requirements
+      const requestData = {
+        subject: emailData.subject,
+        text: emailData.plainText,
+        html: emailData.htmlContent,
+        connectionString: emailData.connectionString,
+        senderAddress: emailData.senderAddress,
+        recipients: {
+          to: emailData.recipients
+        }
+        // Note: Attachments are not included as per client request
+      };
+
       // Call the API route to send emails
-      const response = await fetch('/api/email', {
+      const response = await fetch('http://0.0.0.0:7505/api/marketing/email/send', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(requestData),
       });
 
-      const data = await response.json();
+      // Check if the response is JSON
+      const contentType = response.headers.get("content-type");
+      let data;
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+      } else {
+        data = { message: await response.text() };
+      }
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to send emails');
+        // Handle validation errors
+        if (data.errors && Array.isArray(data.errors)) {
+          const errorMessages = data.errors.map((err: any) => err.msg).join(', ');
+          throw new Error(errorMessages || 'Failed to send emails');
+        } else {
+          throw new Error(data.error || 'Failed to send emails');
+        }
       }
       
       // Show success message
@@ -825,48 +906,114 @@ export default function EmailMarketingPage() {
             </Grid>
 
             <Typography variant="subtitle1" gutterBottom>
-              Select from Leads
+              Select Leads Hierarchically
             </Typography>
             
             <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} md={9}>
-                <Autocomplete
-                  multiple
-                  options={availableLeads}
-                  getOptionLabel={(option) => `${option.name} (${option.email})`}
-                  value={selectedLeads}
-                  onChange={handleLeadSelection}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      variant="outlined"
-                      label="Search Leads"
-                      placeholder="Select leads"
-                    />
-                  )}
-                  renderTags={(value, getTagProps) =>
-                    value.map((option, index) => (
-                      <Chip
-                        label={`${option.name} (${option.email})`}
-                        {...getTagProps({ index })}
-                      />
-                    ))
-                  }
-                />
-              </Grid>
               <Grid item xs={12} md={3}>
-                <Button 
-                  fullWidth 
-                  variant="contained" 
-                  color="primary" 
-                  onClick={handleAddSelectedLeads}
-                  disabled={selectedLeads.length === 0}
-                  sx={{ height: '100%' }}
-                >
-                  Add Selected
-                </Button>
+                <FormControl fullWidth>
+                  <InputLabel id="state-select-label">State</InputLabel>
+                  <Select
+                    labelId="state-select-label"
+                    id="state-select"
+                    value={selectedState}
+                    label="State"
+                    onChange={handleStateChange}
+                  >
+                    <MenuItem value=""><em>None</em></MenuItem>
+                    {states.map((state) => (
+                      <MenuItem key={state} value={state}>{state}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth disabled={!selectedState}>
+                  <InputLabel id="category-select-label">Product Category</InputLabel>
+                  <Select
+                    labelId="category-select-label"
+                    id="category-select"
+                    value={selectedCategory}
+                    label="Product Category"
+                    onChange={handleCategoryChange}
+                  >
+                    <MenuItem value=""><em>None</em></MenuItem>
+                    {categories.map((category) => (
+                      <MenuItem key={category} value={category}>{category}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth disabled={!selectedCategory}>
+                  <InputLabel id="district-select-label">District</InputLabel>
+                  <Select
+                    labelId="district-select-label"
+                    id="district-select"
+                    value={selectedDistrict}
+                    label="District"
+                    onChange={handleDistrictChange}
+                  >
+                    <MenuItem value=""><em>None</em></MenuItem>
+                    {districts.map((district) => (
+                      <MenuItem key={district} value={district}>{district}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth disabled={!selectedDistrict}>
+                  <InputLabel id="batch-select-label">Batch</InputLabel>
+                  <Select
+                    labelId="batch-select-label"
+                    id="batch-select"
+                    value={selectedBatch}
+                    label="Batch"
+                    onChange={handleBatchChange}
+                  >
+                    <MenuItem value=""><em>None</em></MenuItem>
+                    {batches.map((batch) => (
+                      <MenuItem key={batch} value={batch}>{batch}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
             </Grid>
+
+            <Typography variant="subtitle1" gutterBottom>
+              Selected Leads ({selectedLeads.length})
+            </Typography>
+            
+            <Paper variant="outlined" sx={{ p: 2, mb: 3, maxHeight: '200px', overflow: 'auto' }}>
+              {selectedLeads.length > 0 ? (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {selectedLeads.map((lead) => (
+                    <Chip
+                      key={lead.id}
+                      label={`${lead.name} (${lead.email})`}
+                      color="secondary"
+                      variant="outlined"
+                    />
+                  ))}
+                </Box>
+              ) : (
+                <Typography color="textSecondary">No leads selected</Typography>
+              )}
+            </Paper>
+
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                onClick={handleAddSelectedLeads}
+                disabled={selectedLeads.length === 0}
+              >
+                Add Selected Leads to Recipients
+              </Button>
+            </Box>
 
             <Typography variant="subtitle1" gutterBottom>
               Current Recipients ({emailData.recipients.length})

@@ -8,6 +8,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { GlobalNotification } from '@/components/common/GlobalNotification';
 import EmotionStyleRegistry from '@/app/document';
+import { Toaster } from 'react-hot-toast';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   // State to track if component is mounted (client-side)
@@ -26,7 +27,31 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             {/* CssBaseline only on client to avoid hydration mismatch */}
             {mounted && <CssBaseline />}
             {children}
-            {mounted && <GlobalNotification />}
+            {mounted && (
+              <>
+                <GlobalNotification />
+                <Toaster 
+                  position="top-right"
+                  toastOptions={{
+                    duration: 3000,
+                    style: {
+                      background: '#333',
+                      color: '#fff',
+                    },
+                    success: {
+                      style: {
+                        background: '#4caf50',
+                      },
+                    },
+                    error: {
+                      style: {
+                        background: '#f44336',
+                      },
+                    },
+                  }}
+                />
+              </>
+            )}
           </ThemeProvider>
         </NotificationProvider>
       </AuthProvider>

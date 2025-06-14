@@ -14,6 +14,10 @@ import {
   FormControlLabel,
   Checkbox,
   alpha,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   ExpandLess as ExpandLessIcon,
@@ -33,6 +37,7 @@ interface EmailAccountDialogProps {
     imapHost: string;
     imapPort: string;
     useSsl: boolean;
+    provider: string;
   };
   setNewAccountData: React.Dispatch<React.SetStateAction<{
     name: string;
@@ -43,6 +48,7 @@ interface EmailAccountDialogProps {
     imapHost: string;
     imapPort: string;
     useSsl: boolean;
+    provider: string;
   }>>;
   serverConfigExpanded: boolean;
   handleToggleServerConfig: () => void;
@@ -65,6 +71,72 @@ const EmailAccountDialog: React.FC<EmailAccountDialogProps> = ({
       ...newAccountData,
       [name]: type === 'checkbox' ? checked : value,
     });
+  };
+
+  const handleSelectChange = (e: React.ChangeEvent<{ name?: string; value: unknown }>) => {
+    const { name, value } = e.target;
+    if (name) {
+      setNewAccountData({
+        ...newAccountData,
+        [name]: value,
+      });
+      
+      // Auto-fill server settings based on provider
+      if (name === 'provider') {
+        let smtpHost = '';
+        let smtpPort = '587';
+        let imapHost = '';
+        let imapPort = '993';
+        let useSsl = true;
+        
+        switch (value) {
+          case 'gmail':
+            smtpHost = 'smtp.gmail.com';
+            imapHost = 'imap.gmail.com';
+            break;
+          case 'outlook':
+            smtpHost = 'smtp.office365.com';
+            imapHost = 'outlook.office365.com';
+            break;
+          case 'yahoo':
+            smtpHost = 'smtp.mail.yahoo.com';
+            imapHost = 'imap.mail.yahoo.com';
+            break;
+          case 'godaddy':
+            smtpHost = 'smtpout.secureserver.net';
+            imapHost = 'imap.secureserver.net';
+            break;
+          case 'zoho':
+            smtpHost = 'smtp.zoho.com';
+            imapHost = 'imap.zoho.com';
+            break;
+          case 'aol':
+            smtpHost = 'smtp.aol.com';
+            imapHost = 'imap.aol.com';
+            break;
+          default:
+            // Custom provider, don't change settings
+            break;
+        }
+        
+        if (value !== 'custom') {
+          setNewAccountData(prev => ({
+            ...prev,
+            provider: value as string,
+            smtpHost,
+            smtpPort,
+            imapHost,
+            imapPort,
+            useSsl,
+          }));
+          
+          // Expand server config section when provider is selected
+          if (!serverConfigExpanded) {
+            handleToggleServerConfig();
+          }
+        }
+      }
+    }
   };
 
   return (
@@ -96,6 +168,25 @@ const EmailAccountDialog: React.FC<EmailAccountDialogProps> = ({
               sx: { color: 'text.secondary' }
             }}
           />
+          
+          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+            <InputLabel id="provider-label">Email Provider</InputLabel>
+            <Select
+              labelId="provider-label"
+              name="provider"
+              value={newAccountData.provider || ''}
+              label="Email Provider"
+              onChange={handleSelectChange as any}
+            >
+              <MenuItem value="gmail">Gmail</MenuItem>
+              <MenuItem value="outlook">Outlook / Office 365</MenuItem>
+              <MenuItem value="yahoo">Yahoo Mail</MenuItem>
+              <MenuItem value="godaddy">GoDaddy</MenuItem>
+              <MenuItem value="zoho">Zoho Mail</MenuItem>
+              <MenuItem value="aol">AOL Mail</MenuItem>
+              <MenuItem value="custom">Custom Provider</MenuItem>
+            </Select>
+          </FormControl>
           
           <TextField 
             fullWidth 

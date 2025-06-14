@@ -8,6 +8,7 @@ import Link from '@tiptap/extension-link';
 import TextStyle from '@tiptap/extension-text-style';
 import TextAlign from '@tiptap/extension-text-align';
 import Underline from '@tiptap/extension-underline';
+import { toast } from 'react-hot-toast';
 
 // Import components
 import MailboxHeader from './components/MailboxHeader';
@@ -17,23 +18,28 @@ import ComposeEmail from './components/ComposeEmail';
 import EmailAccountDialog from './components/EmailAccountDialog';
 import EmailToolbar from './components/EmailToolbar';
 
-// Import types and mock data
-import { Email, EmailAccount } from './types';
-import { mockEmails, businessEmails } from './mockData';
+// Import types and custom hooks
+import { Email, EmailAccount, EmailRecipient, EmailBody, SystemFolders } from './types';
+import { useEmailService } from './hooks/useEmailService';
 
 export default function MailboxPage() {
   const theme = useTheme();
   const [currentTab, setCurrentTab] = useState(0);
-  const [emails, setEmails] = useState<Email[]>(mockEmails);
-  const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-  const [selectedBusinessEmail, setSelectedBusinessEmail] = useState('');
-  const [loading, setLoading] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
-  const [businessEmailAccounts, setBusinessEmailAccounts] = useState<EmailAccount[]>(businessEmails);
-  const [newAccountData, setNewAccountData] = useState({ 
+  const [newAccountData, setNewAccountData] = useState<{
+    name: string;
+    email: string;
+    password: string;
+    smtpHost: string;
+    smtpPort: string;
+    imapHost: string;
+    imapPort: string;
+    useSsl: boolean;
+    provider: string;
+  }>({ 
     name: '', 
     email: '', 
     password: '',
@@ -41,13 +47,40 @@ export default function MailboxPage() {
     smtpPort: '587',
     imapHost: '',
     imapPort: '993',
-    useSsl: true
+    useSsl: true,
+    provider: ''
   });
   const [editingAccount, setEditingAccount] = useState<string | null>(null);
   const [serverConfigExpanded, setServerConfigExpanded] = useState(false);
   const [profileMenuAnchor, setProfileMenuAnchor] = useState<null | HTMLElement>(null);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const [selectAllChecked, setSelectAllChecked] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  // Use our email service hook
+  const { 
+    emailAccounts,
+    selectedAccount,
+    emails,
+    selectedEmail,
+    loading,
+    error,
+    setSelectedAccount,
+    setSelectedEmail,
+    fetchEmailAccounts,
+    fetchEmails,
+    addAccount,
+    updateAccount,
+    removeAccount,
+    verifyAccount,
+    toggleEmailStar,
+    markEmailAsRead,
+    sendEmailMessage,
+    saveEmailDraft,
+    deleteEmailMessage,
+    formatDate,
+    checkAuthentication
+  } = useEmailService();
   
   // TipTap editor for compose
   const editor = useEditor({
@@ -73,49 +106,47 @@ export default function MailboxPage() {
   });
 
   // Filters for different tabs
-  const tabFilters = [
-    (email: Email) => email.folder === 'inbox',
-    (email: Email) => email.folder === 'sent',
-    (email: Email) => email.folder === 'drafts',
+  const tabFolders = [
+    SystemFolders.INBOX,
+    SystemFolders.SENT,
+    SystemFolders.DRAFTS,
   ];
 
-  // Get emails filtered by current tab and search query
-  const filteredEmails = emails.filter(email => {
-    const matchesTab = tabFilters[currentTab](email);
-    const matchesSearch = email.subject.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         email.from.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTab && matchesSearch;
-  });
-
-  // Format date in a readable way
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
-  };
+  // Get emails filtered by search query
+  const filteredEmails = Array.isArray(emails) ? emails.filter(email => 
+    email.subject?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    email.from?.toLowerCase().includes(searchQuery.toLowerCase())
+  ) : [];
 
   // Handle tab change
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
     setSelectedEmail(null);
+    
+    // Fetch emails for the selected folder
+    if (selectedAccount) {
+      fetchEmails({ folder: tabFolders[newValue] });
+    }
   };
 
   // Toggle star status
-  const toggleStar = (id: string) => {
-    setEmails(emails.map(email => 
-      email.id === id ? { ...email, starred: !email.starred } : email
-    ));
+  const handleToggleStar = (id: string) => {
+    if (!Array.isArray(emails)) return;
+    const email = emails.find(email => email.id === id);
+    if (email) {
+      toggleEmailStar(id, !email.starred);
+    }
   };
 
   // Mark email as read when selected
   const handleSelectEmail = (id: string) => {
     setSelectedEmail(id);
-    setEmails(emails.map(email => 
-      email.id === id ? { ...email, read: true } : email
-    ));
+    markEmailAsRead(id, true);
   };
 
   // Get the currently selected email
   const getSelectedEmail = () => {
+    if (!Array.isArray(emails)) return null;
     return emails.find(email => email.id === selectedEmail);
   };
 
@@ -140,24 +171,103 @@ export default function MailboxPage() {
     setMenuAnchor(null);
   };
 
-  // Send email (mock)
-  const handleSendEmail = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+  // Send email
+  const handleSendEmail = async (
+    to: string, 
+    subject: string, 
+    cc: string = '', 
+    bcc: string = ''
+  ) => {
+    if (!editor || !selectedAccount) return;
+    
+    try {
+      // Parse recipients
+      const toRecipients: EmailRecipient[] = to.split(',').map(email => ({
+        name: email.trim(),
+        email: email.trim()
+      }));
+      
+      const ccRecipients: EmailRecipient[] = cc ? cc.split(',').map(email => ({
+        name: email.trim(),
+        email: email.trim()
+      })) : [];
+      
+      const bccRecipients: EmailRecipient[] = bcc ? bcc.split(',').map(email => ({
+        name: email.trim(),
+        email: email.trim()
+      })) : [];
+      
+      // Prepare body
+      const body: EmailBody = {
+        html: editor.getHTML(),
+        text: editor.getText()
+      };
+      
+      await sendEmailMessage(
+        toRecipients,
+        subject,
+        body,
+        ccRecipients,
+        bccRecipients
+      );
+      
+      toast.success('Email sent successfully');
       handleCloseCompose();
-      // Add the sent email to the list (would be an API call in a real app)
-    }, 1500);
+      
+      // Refresh sent folder if we're on the sent tab
+      if (currentTab === 1) {
+        fetchEmails({ folder: SystemFolders.SENT });
+      }
+    } catch (err) {
+      toast.error('Failed to send email');
+      console.error(err);
+    }
   };
 
-  // Save draft (mock)
-  const handleSaveDraft = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+  // Save draft
+  const handleSaveDraft = async (
+    to: string, 
+    subject: string, 
+    cc: string = '', 
+    bcc: string = ''
+  ) => {
+    if (!editor || !selectedAccount) return;
+    
+    try {
+      // Prepare draft data
+      const draftData = {
+        to: to.split(',').map(email => ({
+          name: email.trim(),
+          email: email.trim()
+        })),
+        cc: cc ? cc.split(',').map(email => ({
+          name: email.trim(),
+          email: email.trim()
+        })) : [],
+        bcc: bcc ? bcc.split(',').map(email => ({
+          name: email.trim(),
+          email: email.trim()
+        })) : [],
+        subject,
+        body: {
+          html: editor.getHTML(),
+          text: editor.getText()
+        }
+      };
+      
+      await saveEmailDraft(draftData);
+      
+      toast.success('Draft saved');
       handleCloseCompose();
-      // Add the draft to the list (would be an API call in a real app)
-    }, 1000);
+      
+      // Refresh drafts folder if we're on the drafts tab
+      if (currentTab === 2) {
+        fetchEmails({ folder: SystemFolders.DRAFTS });
+      }
+    } catch (err) {
+      toast.error('Failed to save draft');
+      console.error(err);
+    }
   };
 
   // Handle account dialog
@@ -175,50 +285,70 @@ export default function MailboxPage() {
       smtpPort: '587',
       imapHost: '',
       imapPort: '993',
-      useSsl: true
+      useSsl: true,
+      provider: ''
     });
     setEditingAccount(null);
   };
 
   // Add new email account
-  const handleAddAccount = () => {
-    if (editingAccount) {
-      // Update existing account
-      setBusinessEmailAccounts(businessEmailAccounts.map(account => 
-        account.id === editingAccount 
-          ? { 
-              ...account, 
-              name: newAccountData.name, 
-              email: newAccountData.email,
-              smtpHost: newAccountData.smtpHost,
-              smtpPort: newAccountData.smtpPort,
-              imapHost: newAccountData.imapHost,
-              imapPort: newAccountData.imapPort,
-              useSsl: newAccountData.useSsl,
-              isLoggedIn: true 
-            } 
-          : account
-      ));
-    } else {
-      // Add new account
-      const newAccount: EmailAccount = {
-        id: `${businessEmailAccounts.length + 1}`,
-        name: newAccountData.name,
-        email: newAccountData.email,
-        smtpHost: newAccountData.smtpHost,
-        smtpPort: newAccountData.smtpPort,
-        imapHost: newAccountData.imapHost,
-        imapPort: newAccountData.imapPort,
-        useSsl: newAccountData.useSsl,
-        isLoggedIn: true,
-      };
-      setBusinessEmailAccounts([...businessEmailAccounts, newAccount]);
+  const handleAddAccount = async () => {
+    try {
+      if (editingAccount) {
+        // Update existing account
+        const accountData = {
+          name: newAccountData.name, 
+          email: newAccountData.email,
+          smtpHost: newAccountData.smtpHost,
+          smtpPort: newAccountData.smtpPort,
+          imapHost: newAccountData.imapHost,
+          imapPort: newAccountData.imapPort,
+          useSsl: newAccountData.useSsl,
+          provider: newAccountData.provider,
+          // Only include password if provided
+          ...(newAccountData.password ? {
+            authType: 'password',
+            credentials: {
+              password: newAccountData.password
+            }
+          } : {})
+        };
+        
+        await updateAccount(editingAccount, accountData);
+        toast.success('Account updated successfully');
+      } else {
+        // Add new account
+        const accountData = {
+          name: newAccountData.name,
+          email: newAccountData.email,
+          smtpHost: newAccountData.smtpHost,
+          smtpPort: newAccountData.smtpPort,
+          imapHost: newAccountData.imapHost,
+          imapPort: newAccountData.imapPort,
+          useSsl: newAccountData.useSsl,
+          provider: newAccountData.provider,
+          authType: 'password',
+          credentials: {
+            password: newAccountData.password
+          }
+        };
+        
+        const newAccount = await addAccount(accountData);
+        setSelectedAccount(newAccount.id);
+        toast.success('Account added successfully');
+      }
+      
+      handleCloseAccountDialog();
+      // Refresh accounts
+      fetchEmailAccounts();
+    } catch (err) {
+      toast.error(editingAccount ? 'Failed to update account' : 'Failed to add account');
+      console.error(err);
     }
-    handleCloseAccountDialog();
   };
 
   // Edit existing account
-  const handleEditAccount = (account: any) => {
+  const handleEditAccount = (account: EmailAccount) => {
     setEditingAccount(account.id);
     setNewAccountData({ 
       name: account.name, 
@@ -228,7 +358,8 @@ export default function MailboxPage() {
       smtpPort: account.smtpPort || '587',
       imapHost: account.imapHost || '',
       imapPort: account.imapPort || '993',
-      useSsl: account.useSsl !== undefined ? account.useSsl : true
+      useSsl: account.useSsl !== undefined ? account.useSsl : true,
+      provider: account.provider || ''
     });
     setServerConfigExpanded(true);
     setAccountDialogOpen(true);
@@ -239,16 +370,15 @@ export default function MailboxPage() {
     setServerConfigExpanded(!serverConfigExpanded);
   };
 
-  // Login to email account
-  const handleLoginAccount = (accountId: string) => {
-    setBusinessEmailAccounts(businessEmailAccounts.map(account => 
-      account.id === accountId ? { ...account, isLoggedIn: true } : account
-    ));
-  };
-
   // Remove email account
-  const handleRemoveAccount = (accountId: string) => {
-    setBusinessEmailAccounts(businessEmailAccounts.filter(account => account.id !== accountId));
+  const handleRemoveAccount = async (accountId: string) => {
+    try {
+      await removeAccount(accountId);
+      toast.success('Account removed successfully');
+    } catch (err) {
+      toast.error('Failed to remove account');
+      console.error(err);
+    }
   };
 
   // Handle profile menu
@@ -275,19 +405,78 @@ export default function MailboxPage() {
       setSelectedEmails([]);
       setSelectAllChecked(false);
     } else {
+      if (!Array.isArray(filteredEmails) || filteredEmails.length === 0) {
+        return;
+      }
       setSelectedEmails(filteredEmails.map(email => email.id));
       setSelectAllChecked(true);
+    }
+  };
+  
+  // Handle refresh
+  const handleRefresh = () => {
+    const currentFolder = tabFolders[currentTab];
+    fetchEmails({ folder: currentFolder }).catch(err => {
+      console.error('Error refreshing emails:', err);
+      toast.error('Failed to refresh emails');
+    });
+    setRefreshTrigger(prev => prev + 1);
+    toast.success('Refreshed emails');
+  };
+
+  // Handle bulk delete
+  const handleBulkDelete = async () => {
+    if (selectedEmails.length === 0) return;
+    
+    try {
+      // Delete each selected email
+      for (const emailId of selectedEmails) {
+        await deleteEmailMessage(emailId);
+      }
+      
+      setSelectedEmails([]);
+      toast.success(`Deleted ${selectedEmails.length} emails`);
+    } catch (err) {
+      toast.error('Failed to delete some emails');
+      console.error(err);
     }
   };
 
   // Effect to update selectAllChecked state
   useEffect(() => {
-    if (filteredEmails.length > 0 && selectedEmails.length === filteredEmails.length) {
+    if (Array.isArray(filteredEmails) && filteredEmails.length > 0 && 
+        selectedEmails.length === filteredEmails.length) {
       setSelectAllChecked(true);
     } else {
       setSelectAllChecked(false);
     }
   }, [selectedEmails, filteredEmails]);
+  
+  // Initial data loading
+  useEffect(() => {
+    // Check authentication status first
+    const isAuth = checkAuthentication();
+    
+    if (isAuth) {
+      try {
+        // Initial emails load happens automatically when selectedAccount changes in the hook
+        fetchEmailAccounts().catch(err => {
+          console.error('Error fetching email accounts:', err);
+          toast.error('Failed to fetch email accounts');
+        });
+      } catch (err) {
+        console.error('Error initializing email service:', err);
+        toast.error('Failed to initialize email service');
+      }
+    } else {
+      toast.error('Please log in to access your emails');
+      // You might want to redirect to login here if needed
+    }
+    
+    if (error) {
+      toast.error(error);
+    }
+  }, [checkAuthentication, fetchEmailAccounts, error]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -317,10 +506,13 @@ export default function MailboxPage() {
           handleCloseProfileMenu={handleCloseProfileMenu}
           menuAnchor={menuAnchor}
           profileMenuAnchor={profileMenuAnchor}
-          selectedBusinessEmail={selectedBusinessEmail}
-          businessEmailAccounts={businessEmailAccounts}
-          setSelectedBusinessEmail={setSelectedBusinessEmail}
-          emails={emails}
+          selectedBusinessEmail={selectedAccount || ''}
+          businessEmailAccounts={emailAccounts || []}
+          setSelectedBusinessEmail={setSelectedAccount}
+          emails={emails || []}
+          onRefresh={handleRefresh}
+          onEditAccount={handleEditAccount}
+          onRemoveAccount={handleRemoveAccount}
         />
 
         {/* Main content area */}
@@ -334,6 +526,7 @@ export default function MailboxPage() {
               selectAllChecked={selectAllChecked}
               handleToggleSelectAll={handleToggleSelectAll}
               selectedEmails={selectedEmails}
+              onBulkDelete={handleBulkDelete}
             />
 
             {/* Email list and content */}
@@ -346,8 +539,9 @@ export default function MailboxPage() {
                   selectedEmails={selectedEmails}
                   handleSelectEmail={handleSelectEmail}
                   handleToggleSelectEmail={handleToggleSelectEmail}
-                  toggleStar={toggleStar}
+                  toggleStar={handleToggleStar}
                   formatDate={formatDate}
+                  loading={loading}
                 />
               </Box>
 
@@ -371,9 +565,9 @@ export default function MailboxPage() {
         onClose={handleCloseCompose}
         loading={loading}
         editor={editor}
-        businessEmailAccounts={businessEmailAccounts}
-        selectedBusinessEmail={selectedBusinessEmail}
-        setSelectedBusinessEmail={setSelectedBusinessEmail}
+        businessEmailAccounts={emailAccounts || []}
+        selectedBusinessEmail={selectedAccount || ''}
+        setSelectedBusinessEmail={setSelectedAccount}
         handleSendEmail={handleSendEmail}
         handleSaveDraft={handleSaveDraft}
       />

@@ -100,22 +100,13 @@ interface ComposeEmailProps {
   businessEmailAccounts: any[];
   selectedBusinessEmail: string;
   setSelectedBusinessEmail: (id: string) => void;
-  handleSendEmail: () => void;
-  handleSaveDraft: () => void;
+  handleSendEmail: (to: string, subject: string, cc?: string, bcc?: string) => void;
+  handleSaveDraft: (to: string, subject: string, cc?: string, bcc?: string) => void;
 }
 
 // Sample email contacts for autocomplete
 const emailContacts = [
-  { name: 'John Doe', email: 'john.doe@example.com' },
-  { name: 'Jane Smith', email: 'jane.smith@example.com' },
-  { name: 'Robert Brown', email: 'robert.brown@example.com' },
-  { name: 'Sarah Wilson', email: 'sarah.wilson@example.com' },
-  { name: 'Michael Johnson', email: 'michael.johnson@example.com' },
-  { name: 'Emily Davis', email: 'emily.davis@example.com' },
-  { name: 'David Miller', email: 'david.miller@example.com' },
-  { name: 'Team Marketing', email: 'marketing@company.com' },
-  { name: 'Support Team', email: 'support@company.com' },
-  { name: 'Sales Department', email: 'sales@company.com' },
+  { name: 'VIKAS KUMAR VERMA', email: 'vikassoftix@gmail.com' }
 ];
 
 const ComposeEmail: React.FC<ComposeEmailProps> = ({
@@ -238,11 +229,15 @@ const ComposeEmail: React.FC<ComposeEmailProps> = ({
               input={<OutlinedInput label="From" />}
               sx={{ bgcolor: alpha('#f5f5f5', 0.5) }}
             >
-              {businessEmailAccounts.map((account) => (
+              {Array.isArray(businessEmailAccounts) ? businessEmailAccounts.map((account) => (
                 <MenuItem key={account.id} value={account.id}>
                   {account.name} ({account.email})
                 </MenuItem>
-              ))}
+              )) : (
+                <MenuItem disabled value="">
+                  No accounts available
+                </MenuItem>
+              )}
             </Select>
           </FormControl>
           
@@ -602,12 +597,12 @@ const ComposeEmail: React.FC<ComposeEmailProps> = ({
       </DialogContent>
       
       <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Button onClick={handleSaveDraft} disabled={loading} variant="outlined">
+        <Button onClick={() => handleSaveDraft(emailData.to.map(e => e.email).join(','), emailData.subject, emailData.cc.map(e => e.email).join(','), emailData.bcc.map(e => e.email).join(','))} disabled={loading} variant="outlined">
           Save as Draft
         </Button>
         <Button 
           variant="contained" 
-          onClick={handleSendEmail} 
+          onClick={() => handleSendEmail(emailData.to.map(e => e.email).join(','), emailData.subject, emailData.cc.map(e => e.email).join(','), emailData.bcc.map(e => e.email).join(','))} 
           startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
           disabled={loading || !canSendEmail}
         >

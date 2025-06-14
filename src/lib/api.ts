@@ -315,7 +315,20 @@ export const fetchLeadCounts = async () => {
 // Create a lead activity
 export const createLeadActivity = async (activityData: LeadActivityData) => {
   try {
-    const response = await apiClient.post('/leads/activities', activityData);
+    // Create a new object for the API request with the correct property name
+    const apiRequestData = {
+      lead: activityData.leadId,
+      type: activityData.type,
+      description: activityData.description,
+      dueDate: activityData.dueDate,
+      completed: activityData.completed,
+      assignedTo: activityData.assignedTo,
+      notes: activityData.notes,
+      // Add any other properties
+      ...(activityData.id && { id: activityData.id })
+    };
+    
+    const response = await apiClient.post('/leads/activities', apiRequestData);
     return response.data;
   } catch (error) {
     console.error('Error creating lead activity:', error);
@@ -375,7 +388,20 @@ export const fetchLeadActivities = async (leadId: string, page: number = 1, limi
 // Schedule a new activity for a lead
 export const scheduleLeadActivity = async (activityData: LeadActivityData) => {
   try {
-    const response = await apiClient.post('/leads/schedule-activity', activityData);
+    // Create a new object for the API request with the correct property name
+    const apiRequestData = {
+      lead: activityData.leadId,
+      type: activityData.type,
+      description: activityData.description,
+      dueDate: activityData.dueDate,
+      completed: activityData.completed,
+      assignedTo: activityData.assignedTo,
+      notes: activityData.notes,
+      // Add any other properties
+      ...(activityData.id && { id: activityData.id })
+    };
+    
+    const response = await apiClient.post('/leads/schedule-activity', apiRequestData);
     return response.data;
   } catch (error) {
     console.error('Error scheduling lead activity:', error);
@@ -397,7 +423,7 @@ export const completeLeadActivity = async (activityId: string) => {
 // Assign a lead to a user
 export const assignLead = async (leadId: string, userId: string) => {
   try {
-    const response = await apiClient.put(`/leads/${leadId}/assign`, { assignedTo: userId });
+    const response = await apiClient.put(`/leads/${leadId}`, { assignedTo: userId });
     return response.data;
   } catch (error) {
     console.error(`Error assigning lead ${leadId} to user ${userId}:`, error);

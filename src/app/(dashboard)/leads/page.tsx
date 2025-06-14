@@ -41,6 +41,13 @@ import {
   ListItemIcon,
   ListItemText,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  SelectChangeEvent,
+  Snackbar,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -68,11 +75,12 @@ import {
   History as HistoryIcon,
   AccessTime as AccessTimeIcon,
   PeopleAlt as PeopleAltIcon,
+  Save as SaveIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, HTMLMotionProps } from 'framer-motion';
-import { fetchLeads, fetchLeadCounts, deleteLead, LeadData } from '@/lib/api';
+import { fetchLeads, fetchLeadCounts, deleteLead, fetchUsers, updateLead, assignLead, LeadData } from '@/lib/api';
 
 // Add type for motion div
 type MotionDiv = HTMLMotionProps<'div'>;
@@ -92,7 +100,7 @@ interface Lead {
   status: LeadStatus;
   source: LeadSource;
   type: LeadType;
-  assignedTo: string;
+  assignedTo: string | { _id: string; email: string; name?: string };
   createdAt: string;
   lastContact: string;
   location: string;
@@ -127,6 +135,40 @@ const formatStatusLabel = (status: LeadStatus) => {
   return status.charAt(0).toUpperCase() + status.slice(1);
 };
 
+// Helper function to safely get assignedTo display value
+const getAssignedToDisplay = (assignedTo: any, userDetails: Record<string, any> = {}): string => {
+  if (!assignedTo) return 'Unassigned';
+  
+  // If it's a string, check if it looks like an ID (MongoDB ObjectId format)
+  if (typeof assignedTo === 'string') {
+    // If it's a MongoDB ObjectId (24 hex chars), try to get user details
+    if (/^[0-9a-f]{24}$/i.test(assignedTo)) {
+      const user = userDetails[assignedTo];
+      if (user) {
+        return user.name || 
+               (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : '') ||
+               user.email || 
+               'Assigned';
+      }
+      return 'Assigned'; // Just show "Assigned" instead of the ID
+    }
+    return assignedTo;
+  }
+  
+  if (typeof assignedTo === 'object') {
+    // If it's an object, try to get name property first
+    // Then try firstName + lastName
+    // Then email
+    // Then id or _id as a last resort
+    return assignedTo.name || 
+           (assignedTo.firstName && assignedTo.lastName ? `${assignedTo.firstName} ${assignedTo.lastName}` : '') ||
+           assignedTo.email || 
+           'Assigned'; // Just show "Assigned" instead of the ID
+  }
+  
+  return String(assignedTo);
+};
+
 export default function LeadsPage() {
   const theme = useTheme();
   const router = useRouter();
@@ -147,6 +189,17 @@ export default function LeadsPage() {
   const [totalLeads, setTotalLeads] = useState(0);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [filterMenuAnchor, setFilterMenuAnchor] = useState<null | HTMLElement>(null);
+  // Add state for storing user details
+  const [userDetails, setUserDetails] = useState<Record<string, any>>({});
+  const [editFormOpen, setEditFormOpen] = useState(false);
+  const [assignAgentDialogOpen, setAssignAgentDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<Lead>>({});
+  const [users, setUsers] = useState<{id: string, name: string}[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   
   useEffect(() => {
     loadLeads();
@@ -154,6 +207,70 @@ export default function LeadsPage() {
     console.log('Lead counts:', leadCounts);
     console.log('Leads:', leads);
   }, [statusFilter, sourceFilter, typeFilter, searchQuery, page, limit, activeTab]);
+ 
+  // Update the useEffect to fetch user details when needed
+  useEffect(() => {
+    // This will run whenever leads data changes
+    if (leads.length > 0) {
+      // Collect all assignedTo IDs that need to be resolved
+      const assigneeIds: string[] = [];
+      
+      leads.forEach(lead => {
+        if (typeof lead.assignedTo === 'string' && /^[0-9a-f]{24}$/i.test(lead.assignedTo as string)) {
+          assigneeIds.push(lead.assignedTo as string);
+        }
+      });
+      
+      // If we have IDs to resolve, fetch the user details
+      if (assigneeIds.length > 0) {
+        console.log('Found leads with unresolved assignees, fetching user details');
+        
+        // Fetch user details
+        const fetchUserDetails = async () => {
+          try {
+            const response = await fetchUsers();
+            if (response && response.data) {
+              // Create a map of user IDs to user details
+              const userMap: Record<string, any> = {};
+              
+              response.data.forEach((user: any) => {
+                const userId = user._id || user.id;
+                if (userId) {
+                  userMap[userId] = user;
+                }
+              });
+              
+              console.log('User details fetched:', userMap);
+              setUserDetails(userMap);
+            }
+          } catch (error) {
+            console.error('Error fetching user details:', error);
+          }
+        };
+        
+        fetchUserDetails();
+      }
+    }
+  }, [leads]);
+
+  // Fetch all users for agent assignment
+  useEffect(() => {
+    const getAllUsers = async () => {
+      try {
+        const usersData = await fetchUsers();
+        if (usersData && usersData.data) {
+          setUsers(usersData.data.map((user: any) => ({
+            id: user._id || user.id,
+            name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+          })));
+        }
+      } catch (err) {
+        console.error('Error fetching users:', err);
+      }
+    };
+
+    getAllUsers();
+  }, []);
 
   const loadLeads = async () => {
     try {
@@ -179,8 +296,16 @@ export default function LeadsPage() {
       
       // Handle the actual API response structure
       if (response) {
-        // The API returns data directly, not nested in a success/data structure
-        setLeads(response.data || []);
+        // Ensure assignedTo is properly processed before setting state
+        const processedLeads = response.data?.map((lead: any) => {
+          // Log the assignedTo field to see what we're getting
+          console.log('Lead assignedTo:', lead._id, lead.assignedTo);
+          
+          // Make sure we return the lead with no changes to its structure
+          return lead;
+        }) || [];
+        
+        setLeads(processedLeads);
         setTotalLeads(response.totalCount || 0);
       } else {
         console.error('Invalid API response:', response);
@@ -250,7 +375,8 @@ export default function LeadsPage() {
     router.push(`/leads/${leadId}`);
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, lead: Lead) => {
+    setSelectedLead(lead);
     setAnchorEl(event.currentTarget);
   };
 
@@ -317,6 +443,141 @@ export default function LeadsPage() {
       ))}
     </Grid>
   );
+
+  // Edit lead functions
+  const handleOpenEditForm = (lead: Lead) => {
+    setSelectedLead(lead);
+    setEditFormData({...lead});
+    setEditFormOpen(true);
+  };
+
+  const handleCloseEditForm = () => {
+    setEditFormOpen(false);
+    setSelectedLead(null);
+  };
+
+  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleStatusChange = (e: SelectChangeEvent) => {
+    setEditFormData(prev => ({
+      ...prev,
+      status: e.target.value as LeadStatus
+    }));
+  };
+
+  const handleSourceChange = (e: SelectChangeEvent) => {
+    setEditFormData(prev => ({
+      ...prev,
+      source: e.target.value as LeadSource
+    }));
+  };
+
+  const handleTypeChange = (e: SelectChangeEvent) => {
+    setEditFormData(prev => ({
+      ...prev,
+      type: e.target.value as LeadType
+    }));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editFormData || !selectedLead) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Use _id for MongoDB compatibility
+      const leadId = selectedLead._id;
+      
+      // Create a clean payload with proper typing
+      const payload: Partial<LeadData> = {
+        name: editFormData.name,
+        company: editFormData.company,
+        email: editFormData.email,
+        phone: editFormData.phone,
+        status: editFormData.status,
+        source: editFormData.source,
+        type: editFormData.type,
+        location: editFormData.location,
+        notes: editFormData.notes,
+      };
+      
+      // If assignedTo exists and is an object, extract the ID
+      if (editFormData.assignedTo) {
+        if (typeof editFormData.assignedTo === 'object') {
+          const assignedToObj = editFormData.assignedTo as any;
+          payload.assignedTo = assignedToObj._id || assignedToObj.id || '';
+        } else {
+          payload.assignedTo = editFormData.assignedTo;
+        }
+      }
+      
+      await updateLead(leadId, payload);
+      
+      // Refresh leads after update
+      loadLeads();
+      
+      setSnackbarMessage('Lead updated successfully');
+      setSnackbarOpen(true);
+      handleCloseEditForm();
+    } catch (error) {
+      console.error('Error updating lead:', error);
+      setSnackbarMessage('Failed to update lead');
+      setSnackbarOpen(true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Assign agent functions
+  const handleOpenAssignAgent = (lead: Lead) => {
+    setSelectedLead(lead);
+    setSelectedAgent(typeof lead.assignedTo === 'string' ? lead.assignedTo : 
+                    (lead.assignedTo as any)?._id || '');
+    setAssignAgentDialogOpen(true);
+  };
+
+  const handleCloseAssignAgent = () => {
+    setAssignAgentDialogOpen(false);
+    setSelectedLead(null);
+  };
+
+  const handleAgentChange = (e: SelectChangeEvent) => {
+    setSelectedAgent(e.target.value);
+  };
+
+  const handleAssignAgent = async () => {
+    if (!selectedLead || !selectedAgent) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Use _id for MongoDB compatibility
+      const leadId = selectedLead._id;
+      
+      await assignLead(leadId, selectedAgent);
+      
+      // Refresh leads after update
+      loadLeads();
+      
+      setSnackbarMessage('Agent assigned successfully');
+      setSnackbarOpen(true);
+      handleCloseAssignAgent();
+    } catch (error) {
+      console.error('Error assigning agent:', error);
+      setSnackbarMessage('Failed to assign agent');
+      setSnackbarOpen(true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
+  };
 
   return (
     <Box sx={{ py: 2, px: { xs: 1, sm: 2 }, backgroundColor: colorPalette.background, minHeight: '100%' }}>
@@ -785,7 +1046,7 @@ export default function LeadsPage() {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <PersonIcon fontSize="small" sx={{ color: alpha(theme.palette.primary.main, 0.8) }} />
                         <Typography variant="body2" sx={{ color: theme.palette.text.primary, fontWeight: 500 }}>
-                          {lead.assignedTo}
+                          {getAssignedToDisplay(lead.assignedTo, userDetails)}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -972,7 +1233,7 @@ export default function LeadsPage() {
                         </Box>
                       </Box>
                     </TableCell>
-                    <TableCell>{lead.assignedTo}</TableCell>
+                    <TableCell>{getAssignedToDisplay(lead.assignedTo, userDetails)}</TableCell>
                     <TableCell>
                       <Chip
                         label={formatStatusLabel(lead.status)}
@@ -991,7 +1252,7 @@ export default function LeadsPage() {
                         size="small"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleMenuOpen(e);
+                          handleMenuOpen(e, lead);
                         }}
                         sx={{
                           bgcolor: alpha(theme.palette.primary.main, 0.05),
@@ -1025,32 +1286,231 @@ export default function LeadsPage() {
           },
         }}
       >
-        <MenuItem onClick={handleMenuClose}>
+        <MenuItem onClick={() => {
+          handleMenuClose();
+          if (selectedLead) handleOpenEditForm(selectedLead);
+        }}>
           <ListItemIcon>
-            <EditIcon fontSize="small" />
+            <EditIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
           </ListItemIcon>
           <ListItemText>Edit Lead</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleMenuClose}>
+        <MenuItem onClick={() => {
+          handleMenuClose();
+          if (selectedLead) handleOpenAssignAgent(selectedLead);
+        }}>
           <ListItemIcon>
-            <EmailIcon fontSize="small" />
+            <PersonIcon fontSize="small" sx={{ color: theme.palette.info.main }} />
           </ListItemIcon>
-          <ListItemText>Send Email</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={handleMenuClose}>
-          <ListItemIcon>
-            <PhoneIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Call Lead</ListItemText>
-        </MenuItem>
-        <Divider sx={{ my: 1 }} />
-        <MenuItem onClick={handleMenuClose} sx={{ color: theme.palette.error.main }}>
-          <ListItemIcon>
-            <DeleteIcon fontSize="small" sx={{ color: theme.palette.error.main }} />
-          </ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+          <ListItemText>Assign Lead</ListItemText>
         </MenuItem>
       </Menu>
+
+      {/* Edit Lead Dialog */}
+      <Dialog
+        open={editFormOpen}
+        onClose={handleCloseEditForm}
+        fullWidth
+        maxWidth="md"
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0, 32, 74, 0.15)',
+          },
+        }}
+      >
+        <DialogTitle>Edit Lead</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={3} sx={{ mt: 0 }}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Name"
+                name="name"
+                value={editFormData.name || ''}
+                onChange={handleEditFormChange}
+                margin="normal"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Company"
+                name="company"
+                value={editFormData.company || ''}
+                onChange={handleEditFormChange}
+                margin="normal"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Email"
+                name="email"
+                type="email"
+                value={editFormData.email || ''}
+                onChange={handleEditFormChange}
+                margin="normal"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Phone"
+                name="phone"
+                value={editFormData.phone || ''}
+                onChange={handleEditFormChange}
+                margin="normal"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={editFormData.status || ''}
+                  label="Status"
+                  onChange={handleStatusChange}
+                >
+                  <MenuItem value="new">New</MenuItem>
+                  <MenuItem value="contacted">Contacted</MenuItem>
+                  <MenuItem value="qualified">Qualified</MenuItem>
+                  <MenuItem value="proposal">Proposal</MenuItem>
+                  <MenuItem value="negotiation">Negotiation</MenuItem>
+                  <MenuItem value="won">Won</MenuItem>
+                  <MenuItem value="lost">Lost</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Source</InputLabel>
+                <Select
+                  value={editFormData.source || ''}
+                  label="Source"
+                  onChange={handleSourceChange}
+                >
+                  <MenuItem value="website">Website</MenuItem>
+                  <MenuItem value="referral">Referral</MenuItem>
+                  <MenuItem value="social">Social Media</MenuItem>
+                  <MenuItem value="trade_show">Trade Show</MenuItem>
+                  <MenuItem value="direct">Direct</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Type</InputLabel>
+                <Select
+                  value={editFormData.type || ''}
+                  label="Type"
+                  onChange={handleTypeChange}
+                >
+                  <MenuItem value="enterprise">Enterprise</MenuItem>
+                  <MenuItem value="startup">Startup</MenuItem>
+                  <MenuItem value="small_business">Small Business</MenuItem>
+                  <MenuItem value="individual">Individual</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Location"
+                name="location"
+                value={editFormData.location || ''}
+                onChange={handleEditFormChange}
+                margin="normal"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Notes"
+                name="notes"
+                multiline
+                rows={4}
+                value={editFormData.notes || ''}
+                onChange={handleEditFormChange}
+                margin="normal"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseEditForm} disabled={isSubmitting}>Cancel</Button>
+          <Button 
+            onClick={handleSaveEdit} 
+            variant="contained" 
+            color="primary" 
+            startIcon={isSubmitting ? <CircularProgress size={20} /> : <SaveIcon />}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Assign Agent Dialog */}
+      <Dialog
+        open={assignAgentDialogOpen}
+        onClose={handleCloseAssignAgent}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0, 32, 74, 0.15)',
+          },
+        }}
+      >
+        <DialogTitle>Assign Agent</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Assign to</InputLabel>
+            <Select
+              value={selectedAgent}
+              label="Assign to"
+              onChange={handleAgentChange}
+            >
+              {users.map((user) => (
+                <MenuItem key={user.id} value={user.id}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Avatar sx={{ width: 24, height: 24, mr: 1, bgcolor: theme.palette.secondary.main }}>
+                      {user.name.charAt(0)}
+                    </Avatar>
+                    {user.name}
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Select an agent to assign this lead to. The agent will be notified.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseAssignAgent} disabled={isSubmitting}>Cancel</Button>
+          <Button 
+            onClick={handleAssignAgent} 
+            variant="contained" 
+            color="primary" 
+            startIcon={isSubmitting ? <CircularProgress size={20} /> : <PersonIcon />}
+            disabled={isSubmitting || !selectedAgent}
+          >
+            {isSubmitting ? 'Assigning...' : 'Assign'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleSnackbarClose}
+        message={snackbarMessage}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
 
       {/* Pagination or "No results" message */}
       {filteredLeads.length === 0 && !loading && (

@@ -22,9 +22,10 @@ interface EmailListProps {
   selectedEmail: string | null;
   selectedEmails: string[];
   handleSelectEmail: (id: string) => void;
-  handleToggleSelectEmail: (id: string) => void;
+  handleToggleSelectEmail: (emailId: string) => void;
   toggleStar: (id: string) => void;
   formatDate: (date: string) => string;
+  loading?: boolean;
 }
 
 const EmailList: React.FC<EmailListProps> = ({

@@ -14,10 +14,11 @@ import {
 
 interface EmailToolbarProps {
   searchQuery: string;
-  setSearchQuery: (query: string) => void;
+  setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
   selectAllChecked: boolean;
   handleToggleSelectAll: () => void;
   selectedEmails: string[];
+  onBulkDelete?: () => Promise<void>;
 }
 
 const EmailToolbar: React.FC<EmailToolbarProps> = ({

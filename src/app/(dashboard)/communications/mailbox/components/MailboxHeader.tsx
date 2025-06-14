@@ -46,6 +46,9 @@ interface MailboxHeaderProps {
   businessEmailAccounts: any[];
   setSelectedBusinessEmail: (id: string) => void;
   emails: any[];
+  onRefresh?: () => void;
+  onEditAccount?: (account: any) => void;
+  onRemoveAccount?: (accountId: string) => void;
 }
 
 const MailboxHeader: React.FC<MailboxHeaderProps> = ({
@@ -63,6 +66,9 @@ const MailboxHeader: React.FC<MailboxHeaderProps> = ({
   businessEmailAccounts,
   setSelectedBusinessEmail,
   emails,
+  onRefresh,
+  onEditAccount,
+  onRemoveAccount,
 }) => {
   const theme = useTheme();
   
@@ -123,19 +129,19 @@ const MailboxHeader: React.FC<MailboxHeaderProps> = ({
                 mr: 1
               }}
             >
-              {selectedBusinessEmail ? 
-                businessEmailAccounts.find(acc => acc.id === selectedBusinessEmail)?.name[0] || 'M' 
+              {selectedBusinessEmail && Array.isArray(businessEmailAccounts) ? 
+                businessEmailAccounts.find(acc => acc?.id === selectedBusinessEmail)?.name?.[0] || 'M' 
                 : 'M'}
             </Avatar>
             <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
               <Typography variant="body2" fontWeight="medium" color="text.primary" noWrap>
-                {selectedBusinessEmail ? 
-                  businessEmailAccounts.find(acc => acc.id === selectedBusinessEmail)?.name || 'Select Account' 
+                {selectedBusinessEmail && Array.isArray(businessEmailAccounts) ? 
+                  businessEmailAccounts.find(acc => acc?.id === selectedBusinessEmail)?.name || 'Select Account' 
                   : 'Select Account'}
               </Typography>
               <Typography variant="caption" color="text.secondary" noWrap>
-                {selectedBusinessEmail ? 
-                  businessEmailAccounts.find(acc => acc.id === selectedBusinessEmail)?.email || 'No account selected' 
+                {selectedBusinessEmail && Array.isArray(businessEmailAccounts) ? 
+                  businessEmailAccounts.find(acc => acc?.id === selectedBusinessEmail)?.email || 'No account selected' 
                   : 'No account selected'}
               </Typography>
             </Box>
@@ -241,7 +247,7 @@ const MailboxHeader: React.FC<MailboxHeaderProps> = ({
           Switch Account
         </Typography>
         <Divider />
-        {businessEmailAccounts.map((account) => (
+        {Array.isArray(businessEmailAccounts) ? businessEmailAccounts.map((account) => (
           <MenuItem 
             key={account.id} 
             onClick={() => {
@@ -282,7 +288,11 @@ const MailboxHeader: React.FC<MailboxHeaderProps> = ({
               />
             )}
           </MenuItem>
-        ))}
+        )) : (
+          <MenuItem disabled>
+            <ListItemText primary="No accounts available" />
+          </MenuItem>
+        )}
         <Divider />
         <MenuItem onClick={() => {
           handleCloseProfileMenu();

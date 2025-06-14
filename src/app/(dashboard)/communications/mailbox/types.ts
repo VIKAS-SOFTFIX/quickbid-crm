@@ -8,6 +8,24 @@ export interface EmailAccount {
   imapHost: string;
   imapPort: string;
   useSsl: boolean;
+  provider?: string;
+  authType?: 'password' | 'oauth2';
+  credentials?: {
+    password?: string;
+    refreshToken?: string;
+    accessToken?: string;
+    expiresAt?: string;
+  };
+}
+
+export interface EmailRecipient {
+  name: string;
+  email: string;
+}
+
+export interface EmailBody {
+  html: string;
+  text: string;
 }
 
 export interface Email {
@@ -21,9 +39,9 @@ export interface Email {
   date: string;
   read: boolean;
   starred: boolean;
-  folder: 'inbox' | 'sent' | 'drafts' | 'trash' | 'archive';
+  folder: string;
   tags?: EmailTag[];
-  attachments?: EmailAttachment[];
+  attachments?: Attachment[];
 }
 
 export interface EmailTag {
@@ -32,7 +50,8 @@ export interface EmailTag {
   color: string;
 }
 
-export interface EmailAttachment {
+// Renamed from EmailAttachment to match API naming convention
+export interface Attachment {
   id: string;
   name: string;
   size: number;
@@ -47,7 +66,7 @@ export interface ComposeEmailData {
   subject: string;
   body: string;
   tags: EmailTag[];
-  attachments: EmailAttachment[];
+  attachments: Attachment[];
 }
 
 export interface EmailAccountFormData {
@@ -59,4 +78,41 @@ export interface EmailAccountFormData {
   imapHost: string;
   imapPort: string;
   useSsl: boolean;
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  type: 'system' | 'custom';
+  count?: number;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
+
+// System folder names
+export enum SystemFolders {
+  INBOX = 'inbox',
+  SENT = 'sent',
+  DRAFTS = 'drafts',
+  TRASH = 'trash',
+  ARCHIVE = 'archive',
+}
+
+// Email search parameters
+export interface EmailSearchParams {
+  page?: number;
+  limit?: number;
+  folder?: string;
+  unread?: boolean;
+  starred?: boolean;
+  from?: string;
+  to?: string;
+  subject?: string;
+  after?: string;
+  before?: string;
+  hasAttachments?: boolean;
 } 
