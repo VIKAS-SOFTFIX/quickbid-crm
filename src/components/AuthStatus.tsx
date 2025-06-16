@@ -58,7 +58,7 @@ export default function AuthStatus() {
       }
       
       // Make a request to a protected endpoint
-      const response = await fetch('http://localhost:7505/api/users', {
+      const response = await fetch('https://api.quickbid.co.in/support/api/users', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

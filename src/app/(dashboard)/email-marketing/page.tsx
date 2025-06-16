@@ -76,6 +76,9 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Image from '@tiptap/extension-image';
 import Heading from '@tiptap/extension-heading';
 import {  EMAIL_TEMPLATES } from './templates';
+import dynamic from 'next/dynamic';
+import { useEmailMarketing } from '@/hooks/useEmailMarketing';
+import { SendEmailRequest } from '@/services/emailMarketingService';
 
 // Maximum file size in bytes (5MB)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -218,10 +221,18 @@ const calculateTimeRemaining = () => {
 
 export default function EmailMarketingPage() {
   const theme = useTheme();
-  const [loading, setLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const {
+    loading,
+    error: apiError,
+    success: apiSuccess,
+    sendMarketingEmail,
+    isClient
+  } = useEmailMarketing();
+  
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [tabValue, setTabValue] = useState(0);
+  const [mainTabValue, setMainTabValue] = useState(0);
   const [emailData, setEmailData] = useState({
     subject: '',
     plainText: '',
@@ -230,6 +241,11 @@ export default function EmailMarketingPage() {
     senderAddress: "DoNotReply@56b2a9ef-273e-4a4f-8036-92dd766e8f7a.azurecomm.net", // Azure Communication Services domain
     connectionString: "endpoint=https://aes-qb-mkt.india.communication.azure.com/;accesskey=AM9HFoZ4F8tnrZi0iav8Sp58z84CCKyTTL2O5YzLkQnCZIFnlmIBJQQJ99BEACULyCph9wJ9AAAAAZCSAlxs", // Azure Communication Services connection string
     attachments: [] as File[],
+    state: '',
+    product: '',
+    category: '',
+    district: '',
+    batchNumber: '',
   });
   const [recipientInput, setRecipientInput] = useState('');
   const [availableLeads, setAvailableLeads] = useState<{id: string, email: string, name: string}[]>([]);
@@ -247,6 +263,10 @@ export default function EmailMarketingPage() {
   const [batches, setBatches] = useState<string[]>(['Batch 1', 'Batch 2', 'Batch 3']);
   const [selectedBatch, setSelectedBatch] = useState<string>('');
 
+  // Add products state
+  const [products, setProducts] = useState<string[]>(['Mobile', 'Laptop', 'Tablet', 'Accessories']);
+  const [selectedProduct, setSelectedProduct] = useState<string>('');
+
   // Test emails by batch with proper type
   interface TestEmailsType {
     [key: string]: { id: string; email: string; name: string }[];
@@ -254,14 +274,14 @@ export default function EmailMarketingPage() {
 
   const testEmails: TestEmailsType = {
     'Batch 1': [
-      // { id: '1', email: 'vermakas99@gmail.com', name: 'VIKAS KUMAR VERMA' },
-      { id: '1', email: 'anuj@toplogic.in', name: 'Anuj' },
-      { id: '2', email: 'Info@toplogic.in', name: 'Info' },
-      { id: '3', email: 'avinash@toplogic.in', name: 'Avinash' },
-      { id: '4', email: 'anuj@quickbid.co.in', name: 'Anuj QB' },
-      { id: '5', email: 'vikas@quickbid.co.in', name: 'Vikas' },
-      { id: '6', email: 'anujkax@yahoo.com', name: 'Anuj Yahoo' },
-      { id: '7', email: 'anujkax@gmail.com', name: 'Anuj Gmail' },
+      { id: '1', email: 'vermakas99@gmail.com', name: 'VIKAS KUMAR VERMA' },
+      // { id: '1', email: 'anuj@toplogic.in', name: 'Anuj' },
+      // { id: '2', email: 'Info@toplogic.in', name: 'Info' },
+      // { id: '3', email: 'avinash@toplogic.in', name: 'Avinash' },
+      // { id: '4', email: 'anuj@quickbid.co.in', name: 'Anuj QB' },
+      // { id: '5', email: 'vikas@quickbid.co.in', name: 'Vikas' },
+      // { id: '6', email: 'anujkax@yahoo.com', name: 'Anuj Yahoo' },
+      // { id: '7', email: 'anujkax@gmail.com', name: 'Anuj Gmail' },
     ],
     'Batch 2': [],
     'Batch 3': [],
@@ -302,14 +322,14 @@ export default function EmailMarketingPage() {
   useEffect(() => {
     // In a real implementation, you would fetch leads from your API
     setAvailableLeads([
-      // { id: '1', email: 'vermakas99@gmail.com', name: 'VIKAS KUMAR VERMA' },
-      { id: '1', email: 'anuj@toplogic.in', name: 'Anuj' },
-      { id: '2', email: 'Info@toplogic.in', name: 'Info' },
-      { id: '3', email: 'avinash@toplogic.in', name: 'Avinash' },
-      { id: '4', email: 'anuj@quickbid.co.in', name: 'Anuj QB' },
-      { id: '5', email: 'vikas@quickbid.co.in', name: 'Vikas' },
-      { id: '6', email: 'anujkax@yahoo.com', name: 'Anuj Yahoo' },
-      { id: '7', email: 'anujkax@gmail.com', name: 'Anuj Gmail' },
+      { id: '1', email: 'vermakas99@gmail.com', name: 'VIKAS KUMAR VERMA' },
+      // { id: '1', email: 'anuj@toplogic.in', name: 'Anuj' },
+      // { id: '2', email: 'Info@toplogic.in', name: 'Info' },
+      // { id: '3', email: 'avinash@toplogic.in', name: 'Avinash' },
+      // { id: '4', email: 'anuj@quickbid.co.in', name: 'Anuj QB' },
+      // { id: '5', email: 'vikas@quickbid.co.in', name: 'Vikas' },
+      // { id: '6', email: 'anujkax@yahoo.com', name: 'Anuj Yahoo' },
+      // { id: '7', email: 'anujkax@gmail.com', name: 'Anuj Gmail' },
     ]);
   }, []);
 
@@ -321,7 +341,12 @@ export default function EmailMarketingPage() {
   }, [selectedBatch]);
 
   const handleStateChange = (event: SelectChangeEvent) => {
-    setSelectedState(event.target.value);
+    const stateValue = event.target.value;
+    setSelectedState(stateValue);
+    setEmailData({
+      ...emailData,
+      state: stateValue
+    });
     setSelectedCategory('');
     setSelectedDistrict('');
     setSelectedBatch('');
@@ -329,20 +354,35 @@ export default function EmailMarketingPage() {
   };
 
   const handleCategoryChange = (event: SelectChangeEvent) => {
-    setSelectedCategory(event.target.value);
+    const categoryValue = event.target.value;
+    setSelectedCategory(categoryValue);
+    setEmailData({
+      ...emailData,
+      category: categoryValue
+    });
     setSelectedDistrict('');
     setSelectedBatch('');
     setSelectedLeads([]);
   };
 
   const handleDistrictChange = (event: SelectChangeEvent) => {
-    setSelectedDistrict(event.target.value);
+    const districtValue = event.target.value;
+    setSelectedDistrict(districtValue);
+    setEmailData({
+      ...emailData,
+      district: districtValue
+    });
     setSelectedBatch('');
     setSelectedLeads([]);
   };
 
   const handleBatchChange = (event: SelectChangeEvent) => {
-    setSelectedBatch(event.target.value);
+    const batchValue = event.target.value;
+    setSelectedBatch(batchValue);
+    setEmailData({
+      ...emailData,
+      batchNumber: batchValue
+    });
   };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -512,10 +552,9 @@ export default function EmailMarketingPage() {
       return;
     }
 
-    setLoading(true);
     try {
       // Format data according to API requirements
-      const requestData = {
+      const requestData: SendEmailRequest = {
         subject: emailData.subject,
         text: emailData.plainText,
         html: emailData.htmlContent,
@@ -523,66 +562,96 @@ export default function EmailMarketingPage() {
         senderAddress: emailData.senderAddress,
         recipients: {
           to: emailData.recipients
-        }
-        // Note: Attachments are not included as per client request
+        },
+        state: emailData.state || undefined,
+        product: emailData.product || undefined,
+        category: emailData.category || undefined,
+        district: emailData.district || undefined,
+        batchNumber: emailData.batchNumber || undefined
       };
 
-      // Call the API route to send emails
-      const response = await fetch('http://0.0.0.0:7505/api/marketing/email/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(requestData),
-      });
-
-      // Check if the response is JSON
-      const contentType = response.headers.get("content-type");
-      let data;
-      if (contentType && contentType.indexOf("application/json") !== -1) {
-        data = await response.json();
-      } else {
-        data = { message: await response.text() };
-      }
+      // Send email using the hook
+      const success = await sendMarketingEmail(requestData);
       
-      if (!response.ok) {
-        // Handle validation errors
-        if (data.errors && Array.isArray(data.errors)) {
-          const errorMessages = data.errors.map((err: any) => err.msg).join(', ');
-          throw new Error(errorMessages || 'Failed to send emails');
-        } else {
-          throw new Error(data.error || 'Failed to send emails');
+      if (success) {
+        // Show success message
+        setSuccessMessage(`Successfully sent ${emailData.recipients.length} emails`);
+        setErrorMessage('');
+        
+        // Reset form after successful send
+        setEmailData({
+          ...emailData,
+          subject: '',
+          plainText: '',
+          htmlContent: '',
+          recipients: [],
+          attachments: [],
+          state: '',
+          product: '',
+          category: '',
+          district: '',
+          batchNumber: ''
+        });
+        setSelectedLeads([]);
+        setSelectedState('');
+        setSelectedCategory('');
+        setSelectedDistrict('');
+        setSelectedBatch('');
+        
+        // Reset editor content
+        if (editor) {
+          editor.commands.setContent('');
         }
-      }
-      
-      // Show success message
-      setSuccessMessage(`Successfully sent ${emailData.recipients.length} emails`);
-      setErrorMessage('');
-      
-      // Reset form after successful send
-      setEmailData({
-        ...emailData,
-        subject: '',
-        plainText: '',
-        htmlContent: '',
-        recipients: [],
-        attachments: []
-      });
-      setSelectedLeads([]);
-      
-      // Reset editor content
-      if (editor) {
-        editor.commands.setContent('');
       }
     } catch (error: any) {
       console.error('Error sending emails:', error);
       setErrorMessage(error.message || 'Failed to send emails. Please try again.');
       setSuccessMessage('');
-    } finally {
-      setLoading(false);
     }
   };
+
+  // Update success and error messages when API state changes
+  useEffect(() => {
+    if (apiSuccess) {
+      setSuccessMessage(apiSuccess);
+    }
+    if (apiError) {
+      setErrorMessage(apiError);
+    }
+  }, [apiSuccess, apiError]);
+
+  // Check for follow-up parameters in URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const followUp = urlParams.get('followUp');
+    const emailId = urlParams.get('emailId');
+
+    if (followUp === 'true' && emailId) {
+      // In a real implementation, you would fetch the original email data
+      // and pre-fill the form with recipients, etc.
+      setSuccessMessage('Creating follow-up email. Recipients have been pre-filled.');
+      setMainTabValue(0); // Switch to compose tab
+    }
+  }, []);
+
+  // Add product change handler
+  const handleProductChange = (event: SelectChangeEvent) => {
+    const productValue = event.target.value;
+    setSelectedProduct(productValue);
+    setEmailData({
+      ...emailData,
+      product: productValue
+    });
+  };
+
+  // If we're server-side rendering, return a minimal placeholder
+  if (!isClient) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3 }}>
@@ -597,537 +666,575 @@ export default function EmailMarketingPage() {
           Create and send marketing emails to your leads and customers
         </Typography>
 
-        <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 3 }}>
+        <Tabs value={mainTabValue} onChange={(e, newValue) => setMainTabValue(newValue)} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
           <Tab label="Compose Email" />
-          <Tab label="Recipients" />
-          <Tab label="Attachments" />
+          <Tab label="Sent Emails" />
         </Tabs>
 
-        {tabValue === 0 && (
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-              <TextField
-                fullWidth
-                label="Email Subject"
-                variant="outlined"
-                value={emailData.subject}
-                onChange={(e) => setEmailData({ ...emailData, subject: e.target.value })}
-                sx={{ mr: 2 }}
-              />
-              
-              <Box sx={{ position: 'relative' }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<TemplateIcon />}
-                  onClick={() => setShowTemplateMenu(!showTemplateMenu)}
-                >
-                  Templates
-                </Button>
-                
-                {showTemplateMenu && (
-                  <Paper
-                    sx={{
-                      position: 'absolute',
-                      right: 0,
-                      top: '100%',
-                      mt: 1,
-                      width: 280,
-                      maxHeight: 400,
-                      overflow: 'auto',
-                      zIndex: 1000,
-                      boxShadow: theme.shadows[4],
-                    }}
-                  >
-                    <List>
-                      {EMAIL_TEMPLATES.map((template) => (
-                        <ListItem 
-                          key={template.id}
-                          onClick={() => applyTemplate(template)}
-                          sx={{ cursor: 'pointer' }}
-                        >
-                          <ListItemIcon>
-                            <TemplateIcon />
-                          </ListItemIcon>
-                          <ListItemText primary={template.name} />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </Paper>
-                )}
-              </Box>
-            </Box>
+        {mainTabValue === 0 && (
+          <>
+            <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 3 }}>
+              <Tab label="Compose Email" />
+              <Tab label="Recipients" />
+              <Tab label="Attachments" />
+            </Tabs>
 
-            <Paper 
-              variant="outlined" 
-              sx={{ 
-                mb: 3, 
-                overflow: 'hidden',
-                border: `1px solid ${theme.palette.divider}`,
-                borderRadius: 1,
-                '&:focus-within': {
-                  borderColor: theme.palette.primary.main,
-                  boxShadow: `0 0 0 2px ${theme.palette.primary.main}0a`,
-                },
-              }}
-            >
-              <Box sx={{ 
-                p: 1, 
-                borderBottom: '1px solid', 
-                borderColor: 'divider',
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 0.5,
-                backgroundColor: theme.palette.background.default,
-              }}>
-                <MenuButton 
-                  onClick={() => editor?.chain().focus().toggleBold().run()}
-                  isActive={editor?.isActive('bold')}
-                  icon={<BoldIcon fontSize="small" />}
-                  title="Bold"
-                />
-                <MenuButton 
-                  onClick={() => editor?.chain().focus().toggleItalic().run()}
-                  isActive={editor?.isActive('italic')}
-                  icon={<ItalicIcon fontSize="small" />}
-                  title="Italic"
-                />
-                <MenuButton 
-                  onClick={() => editor?.chain().focus().toggleCode().run()}
-                  isActive={editor?.isActive('code')}
-                  icon={<CodeIcon fontSize="small" />}
-                  title="Inline Code"
-                />
-                <Divider orientation="vertical" flexItem />
-                
-                <MenuButton 
-                  onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
-                  isActive={editor?.isActive('heading', { level: 2 })}
-                  icon={<HeadingIcon fontSize="small" />}
-                  title="Heading"
-                />
-                
-                <Divider orientation="vertical" flexItem />
-                
-                <MenuButton 
-                  onClick={() => editor?.chain().focus().toggleBulletList().run()}
-                  isActive={editor?.isActive('bulletList')}
-                  icon={<ListIcon fontSize="small" />}
-                  title="Bullet List"
-                />
-                <MenuButton 
-                  onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-                  isActive={editor?.isActive('orderedList')}
-                  icon={<OrderedListIcon fontSize="small" />}
-                  title="Numbered List"
-                />
-                
-                <Divider orientation="vertical" flexItem />
-                
-                <MenuButton 
-                  onClick={() => editor?.chain().focus().toggleBlockquote().run()}
-                  isActive={editor?.isActive('blockquote')}
-                  icon={<QuoteIcon fontSize="small" />}
-                  title="Quote"
-                />
-                
-                <MenuButton 
-                  onClick={() => {
-                    const url = window.prompt('URL');
-                    if (url) {
-                      editor?.chain().focus().setLink({ href: url }).run();
-                    }
+            {tabValue === 0 && (
+              <Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                  <TextField
+                    fullWidth
+                    label="Email Subject"
+                    variant="outlined"
+                    value={emailData.subject}
+                    onChange={(e) => setEmailData({ ...emailData, subject: e.target.value })}
+                    sx={{ mr: 2 }}
+                  />
+                  
+                  <Box sx={{ position: 'relative' }}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<TemplateIcon />}
+                      onClick={() => setShowTemplateMenu(!showTemplateMenu)}
+                    >
+                      Templates
+                    </Button>
+                    
+                    {showTemplateMenu && (
+                      <Paper
+                        sx={{
+                          position: 'absolute',
+                          right: 0,
+                          top: '100%',
+                          mt: 1,
+                          width: 280,
+                          maxHeight: 400,
+                          overflow: 'auto',
+                          zIndex: 1000,
+                          boxShadow: theme.shadows[4],
+                        }}
+                      >
+                        <List>
+                          {EMAIL_TEMPLATES.map((template) => (
+                            <ListItem 
+                              key={template.id}
+                              onClick={() => applyTemplate(template)}
+                              sx={{ cursor: 'pointer' }}
+                            >
+                              <ListItemIcon>
+                                <TemplateIcon />
+                              </ListItemIcon>
+                              <ListItemText primary={template.name} />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Paper>
+                    )}
+                  </Box>
+                </Box>
+
+                <Paper 
+                  variant="outlined" 
+                  sx={{ 
+                    mb: 3, 
+                    overflow: 'hidden',
+                    border: `1px solid ${theme.palette.divider}`,
+                    borderRadius: 1,
+                    '&:focus-within': {
+                      borderColor: theme.palette.primary.main,
+                      boxShadow: `0 0 0 2px ${theme.palette.primary.main}0a`,
+                    },
                   }}
-                  isActive={editor?.isActive('link')}
-                  icon={<LinkIcon fontSize="small" />}
-                  title="Add Link"
-                />
-                
-                <MenuButton 
-                  onClick={addImageToEditor}
-                  icon={<ImageIcon fontSize="small" />}
-                  title="Add Image"
-                />
-                
-                <Divider orientation="vertical" flexItem />
-                
-                <MenuButton 
-                  onClick={() => editor?.chain().focus().setTextAlign('left').run()}
-                  isActive={editor?.isActive({ textAlign: 'left' })}
-                  icon={<AlignLeftIcon fontSize="small" />}
-                  title="Align Left"
-                />
-                <MenuButton 
-                  onClick={() => editor?.chain().focus().setTextAlign('center').run()}
-                  isActive={editor?.isActive({ textAlign: 'center' })}
-                  icon={<AlignCenterIcon fontSize="small" />}
-                  title="Align Center"
-                />
-                <MenuButton 
-                  onClick={() => editor?.chain().focus().setTextAlign('right').run()}
-                  isActive={editor?.isActive({ textAlign: 'right' })}
-                  icon={<AlignRightIcon fontSize="small" />}
-                  title="Align Right"
-                />
-                
-                <Divider orientation="vertical" flexItem />
-                
-                <MenuButton 
-                  onClick={() => editor?.chain().focus().undo().run()}
-                  icon={<UndoIcon fontSize="small" />}
-                  title="Undo"
-                />
-                <MenuButton 
-                  onClick={() => editor?.chain().focus().redo().run()}
-                  icon={<RedoIcon fontSize="small" />}
-                  title="Redo"
-                />
-              </Box>
-              
-              <StyledEditorContent editor={editor} />
-              
-              {editor && (
-                <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
-                  <Paper sx={{ display: 'flex', p: 0.5, borderRadius: 1 }}>
-                    <IconButton 
-                      size="small"
-                      onClick={() => editor.chain().focus().toggleBold().run()}
-                    >
-                      <BoldIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton 
-                      size="small"
-                      onClick={() => editor.chain().focus().toggleItalic().run()}
-                    >
-                      <ItalicIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton 
-                      size="small"
+                >
+                  <Box sx={{ 
+                    p: 1, 
+                    borderBottom: '1px solid', 
+                    borderColor: 'divider',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 0.5,
+                    backgroundColor: theme.palette.background.default,
+                  }}>
+                    <MenuButton 
+                      onClick={() => editor?.chain().focus().toggleBold().run()}
+                      isActive={editor?.isActive('bold')}
+                      icon={<BoldIcon fontSize="small" />}
+                      title="Bold"
+                    />
+                    <MenuButton 
+                      onClick={() => editor?.chain().focus().toggleItalic().run()}
+                      isActive={editor?.isActive('italic')}
+                      icon={<ItalicIcon fontSize="small" />}
+                      title="Italic"
+                    />
+                    <MenuButton 
+                      onClick={() => editor?.chain().focus().toggleCode().run()}
+                      isActive={editor?.isActive('code')}
+                      icon={<CodeIcon fontSize="small" />}
+                      title="Inline Code"
+                    />
+                    <Divider orientation="vertical" flexItem />
+                    
+                    <MenuButton 
+                      onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                      isActive={editor?.isActive('heading', { level: 2 })}
+                      icon={<HeadingIcon fontSize="small" />}
+                      title="Heading"
+                    />
+                    
+                    <Divider orientation="vertical" flexItem />
+                    
+                    <MenuButton 
+                      onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                      isActive={editor?.isActive('bulletList')}
+                      icon={<ListIcon fontSize="small" />}
+                      title="Bullet List"
+                    />
+                    <MenuButton 
+                      onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+                      isActive={editor?.isActive('orderedList')}
+                      icon={<OrderedListIcon fontSize="small" />}
+                      title="Numbered List"
+                    />
+                    
+                    <Divider orientation="vertical" flexItem />
+                    
+                    <MenuButton 
+                      onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+                      isActive={editor?.isActive('blockquote')}
+                      icon={<QuoteIcon fontSize="small" />}
+                      title="Quote"
+                    />
+                    
+                    <MenuButton 
                       onClick={() => {
                         const url = window.prompt('URL');
                         if (url) {
-                          editor.chain().focus().setLink({ href: url }).run();
+                          editor?.chain().focus().setLink({ href: url }).run();
                         }
                       }}
-                    >
-                      <LinkIcon fontSize="small" />
-                    </IconButton>
-                  </Paper>
-                </BubbleMenu>
-              )}
-            </Paper>
-            
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Tooltip title="Preview your email in a new tab">
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    // Create a temporary HTML page with the email content
-                    const emailPreview = `
-                      <!DOCTYPE html>
-                      <html>
-                        <head>
-                          <title>Email Preview - ${emailData.subject}</title>
-                          <meta charset="utf-8">
-                          <meta name="viewport" content="width=device-width, initial-scale=1">
-                          <style>
-                            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
-                            h1, h2, h3, h4, h5, h6 { color: #444; line-height: 1.3; }
-                            a { color: #3f51b5; }
-                            hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
-                            pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow: auto; }
-                            blockquote { border-left: 4px solid #ddd; padding-left: 15px; color: #666; }
-                          </style>
-                        </head>
-                        <body>
-                          <div style="background: #f9f9f9; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
-                            <strong>Subject:</strong> ${emailData.subject}
-                            <br>
-                            <strong>From:</strong> ${emailData.senderAddress}
-                            <br>
-                            <strong>To:</strong> ${emailData.recipients.map(r => r.address).join(', ') || '[Recipients]'}
-                          </div>
-                          <div class="email-content">
-                            ${emailData.htmlContent}
-                          </div>
-                        </body>
-                      </html>
-                    `;
-                    
-                    const previewWindow = window.open();
-                    previewWindow?.document.write(emailPreview);
-                    previewWindow?.document.close();
-                  }}
-                  sx={{ mr: 2 }}
-                >
-                  Preview Email
-                </Button>
-              </Tooltip>
-            </Box>
-          </Box>
-        )}
-
-        {tabValue === 1 && (
-          <Box>
-            <Typography variant="subtitle1" gutterBottom>
-              Add Recipients
-            </Typography>
-            
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} md={9}>
-                <TextField
-                  fullWidth
-                  label="Email Address"
-                  variant="outlined"
-                  value={recipientInput}
-                  onChange={(e) => setRecipientInput(e.target.value)}
-                  placeholder="example@email.com"
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton onClick={handleAddRecipient}>
-                          <AddIcon />
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <Button 
-                  fullWidth 
-                  variant="contained" 
-                  color="primary" 
-                  onClick={handleAddRecipient}
-                  sx={{ height: '100%' }}
-                >
-                  Add Recipient
-                </Button>
-              </Grid>
-            </Grid>
-
-            <Typography variant="subtitle1" gutterBottom>
-              Select Leads Hierarchically
-            </Typography>
-            
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} md={3}>
-                <FormControl fullWidth>
-                  <InputLabel id="state-select-label">State</InputLabel>
-                  <Select
-                    labelId="state-select-label"
-                    id="state-select"
-                    value={selectedState}
-                    label="State"
-                    onChange={handleStateChange}
-                  >
-                    <MenuItem value=""><em>None</em></MenuItem>
-                    {states.map((state) => (
-                      <MenuItem key={state} value={state}>{state}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12} md={3}>
-                <FormControl fullWidth disabled={!selectedState}>
-                  <InputLabel id="category-select-label">Product Category</InputLabel>
-                  <Select
-                    labelId="category-select-label"
-                    id="category-select"
-                    value={selectedCategory}
-                    label="Product Category"
-                    onChange={handleCategoryChange}
-                  >
-                    <MenuItem value=""><em>None</em></MenuItem>
-                    {categories.map((category) => (
-                      <MenuItem key={category} value={category}>{category}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12} md={3}>
-                <FormControl fullWidth disabled={!selectedCategory}>
-                  <InputLabel id="district-select-label">District</InputLabel>
-                  <Select
-                    labelId="district-select-label"
-                    id="district-select"
-                    value={selectedDistrict}
-                    label="District"
-                    onChange={handleDistrictChange}
-                  >
-                    <MenuItem value=""><em>None</em></MenuItem>
-                    {districts.map((district) => (
-                      <MenuItem key={district} value={district}>{district}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12} md={3}>
-                <FormControl fullWidth disabled={!selectedDistrict}>
-                  <InputLabel id="batch-select-label">Batch</InputLabel>
-                  <Select
-                    labelId="batch-select-label"
-                    id="batch-select"
-                    value={selectedBatch}
-                    label="Batch"
-                    onChange={handleBatchChange}
-                  >
-                    <MenuItem value=""><em>None</em></MenuItem>
-                    {batches.map((batch) => (
-                      <MenuItem key={batch} value={batch}>{batch}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-
-            <Typography variant="subtitle1" gutterBottom>
-              Selected Leads ({selectedLeads.length})
-            </Typography>
-            
-            <Paper variant="outlined" sx={{ p: 2, mb: 3, maxHeight: '200px', overflow: 'auto' }}>
-              {selectedLeads.length > 0 ? (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {selectedLeads.map((lead) => (
-                    <Chip
-                      key={lead.id}
-                      label={`${lead.name} (${lead.email})`}
-                      color="secondary"
-                      variant="outlined"
+                      isActive={editor?.isActive('link')}
+                      icon={<LinkIcon fontSize="small" />}
+                      title="Add Link"
                     />
-                  ))}
+                    
+                    <MenuButton 
+                      onClick={addImageToEditor}
+                      icon={<ImageIcon fontSize="small" />}
+                      title="Add Image"
+                    />
+                    
+                    <Divider orientation="vertical" flexItem />
+                    
+                    <MenuButton 
+                      onClick={() => editor?.chain().focus().setTextAlign('left').run()}
+                      isActive={editor?.isActive({ textAlign: 'left' })}
+                      icon={<AlignLeftIcon fontSize="small" />}
+                      title="Align Left"
+                    />
+                    <MenuButton 
+                      onClick={() => editor?.chain().focus().setTextAlign('center').run()}
+                      isActive={editor?.isActive({ textAlign: 'center' })}
+                      icon={<AlignCenterIcon fontSize="small" />}
+                      title="Align Center"
+                    />
+                    <MenuButton 
+                      onClick={() => editor?.chain().focus().setTextAlign('right').run()}
+                      isActive={editor?.isActive({ textAlign: 'right' })}
+                      icon={<AlignRightIcon fontSize="small" />}
+                      title="Align Right"
+                    />
+                    
+                    <Divider orientation="vertical" flexItem />
+                    
+                    <MenuButton 
+                      onClick={() => editor?.chain().focus().undo().run()}
+                      icon={<UndoIcon fontSize="small" />}
+                      title="Undo"
+                    />
+                    <MenuButton 
+                      onClick={() => editor?.chain().focus().redo().run()}
+                      icon={<RedoIcon fontSize="small" />}
+                      title="Redo"
+                    />
+                  </Box>
+                  
+                  <StyledEditorContent editor={editor} />
+                  
+                  {editor && (
+                    <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
+                      <Paper sx={{ display: 'flex', p: 0.5, borderRadius: 1 }}>
+                        <IconButton 
+                          size="small"
+                          onClick={() => editor.chain().focus().toggleBold().run()}
+                        >
+                          <BoldIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton 
+                          size="small"
+                          onClick={() => editor.chain().focus().toggleItalic().run()}
+                        >
+                          <ItalicIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton 
+                          size="small"
+                          onClick={() => {
+                            const url = window.prompt('URL');
+                            if (url) {
+                              editor.chain().focus().setLink({ href: url }).run();
+                            }
+                          }}
+                        >
+                          <LinkIcon fontSize="small" />
+                        </IconButton>
+                      </Paper>
+                    </BubbleMenu>
+                  )}
+                </Paper>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Tooltip title="Preview your email in a new tab">
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        // Create a temporary HTML page with the email content
+                        const emailPreview = `
+                          <!DOCTYPE html>
+                          <html>
+                            <head>
+                              <title>Email Preview - ${emailData.subject}</title>
+                              <meta charset="utf-8">
+                              <meta name="viewport" content="width=device-width, initial-scale=1">
+                              <style>
+                                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
+                                h1, h2, h3, h4, h5, h6 { color: #444; line-height: 1.3; }
+                                a { color: #3f51b5; }
+                                hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+                                pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow: auto; }
+                                blockquote { border-left: 4px solid #ddd; padding-left: 15px; color: #666; }
+                              </style>
+                            </head>
+                            <body>
+                              <div style="background: #f9f9f9; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
+                                <strong>Subject:</strong> ${emailData.subject}
+                                <br>
+                                <strong>From:</strong> ${emailData.senderAddress}
+                                <br>
+                                <strong>To:</strong> ${emailData.recipients.map(r => r.address).join(', ') || '[Recipients]'}
+                              </div>
+                              <div class="email-content">
+                                ${emailData.htmlContent}
+                              </div>
+                            </body>
+                          </html>
+                        `;
+                        
+                        const previewWindow = window.open();
+                        previewWindow?.document.write(emailPreview);
+                        previewWindow?.document.close();
+                      }}
+                      sx={{ mr: 2 }}
+                    >
+                      Preview Email
+                    </Button>
+                  </Tooltip>
                 </Box>
-              ) : (
-                <Typography color="textSecondary">No leads selected</Typography>
-              )}
-            </Paper>
+              </Box>
+            )}
 
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-              <Button 
-                variant="contained" 
-                color="primary" 
-                onClick={handleAddSelectedLeads}
-                disabled={selectedLeads.length === 0}
+            {tabValue === 1 && (
+              <Box>
+                <Typography variant="subtitle1" gutterBottom>
+                  Add Recipients
+                </Typography>
+                
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                  <Grid item xs={12} md={9}>
+                    <TextField
+                      fullWidth
+                      label="Email Address"
+                      variant="outlined"
+                      value={recipientInput}
+                      onChange={(e) => setRecipientInput(e.target.value)}
+                      placeholder="example@email.com"
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton onClick={handleAddRecipient}>
+                              <AddIcon />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <Button 
+                      fullWidth 
+                      variant="contained" 
+                      color="primary" 
+                      onClick={handleAddRecipient}
+                      sx={{ height: '100%' }}
+                    >
+                      Add Recipient
+                    </Button>
+                  </Grid>
+                </Grid>
+
+                <Typography variant="subtitle1" gutterBottom>
+                  Select Leads Hierarchically
+                </Typography>
+                
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                  <Grid item xs={12} md={2}>
+                    <FormControl fullWidth>
+                      <InputLabel id="state-select-label">State</InputLabel>
+                      <Select
+                        labelId="state-select-label"
+                        id="state-select"
+                        value={selectedState}
+                        label="State"
+                        onChange={handleStateChange}
+                      >
+                        <MenuItem value=""><em>None</em></MenuItem>
+                        {states.map((state) => (
+                          <MenuItem key={state} value={state}>{state}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  
+                  <Grid item xs={12} md={2}>
+                    <FormControl fullWidth>
+                      <InputLabel id="product-select-label">Product</InputLabel>
+                      <Select
+                        labelId="product-select-label"
+                        id="product-select"
+                        value={selectedProduct}
+                        label="Product"
+                        onChange={handleProductChange}
+                      >
+                        <MenuItem value=""><em>None</em></MenuItem>
+                        {products.map((product) => (
+                          <MenuItem key={product} value={product}>{product}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  
+                  <Grid item xs={12} md={2}>
+                    <FormControl fullWidth disabled={!selectedState}>
+                      <InputLabel id="category-select-label">Category</InputLabel>
+                      <Select
+                        labelId="category-select-label"
+                        id="category-select"
+                        value={selectedCategory}
+                        label="Category"
+                        onChange={handleCategoryChange}
+                      >
+                        <MenuItem value=""><em>None</em></MenuItem>
+                        {categories.map((category) => (
+                          <MenuItem key={category} value={category}>{category}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  
+                  <Grid item xs={12} md={3}>
+                    <FormControl fullWidth disabled={!selectedCategory}>
+                      <InputLabel id="district-select-label">District</InputLabel>
+                      <Select
+                        labelId="district-select-label"
+                        id="district-select"
+                        value={selectedDistrict}
+                        label="District"
+                        onChange={handleDistrictChange}
+                      >
+                        <MenuItem value=""><em>None</em></MenuItem>
+                        {districts.map((district) => (
+                          <MenuItem key={district} value={district}>{district}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  
+                  <Grid item xs={12} md={3}>
+                    <FormControl fullWidth disabled={!selectedDistrict}>
+                      <InputLabel id="batch-select-label">Batch</InputLabel>
+                      <Select
+                        labelId="batch-select-label"
+                        id="batch-select"
+                        value={selectedBatch}
+                        label="Batch"
+                        onChange={handleBatchChange}
+                      >
+                        <MenuItem value=""><em>None</em></MenuItem>
+                        {batches.map((batch) => (
+                          <MenuItem key={batch} value={batch}>{batch}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
+
+                <Typography variant="subtitle1" gutterBottom>
+                  Selected Leads ({selectedLeads.length})
+                </Typography>
+                
+                <Paper variant="outlined" sx={{ p: 2, mb: 3, maxHeight: '200px', overflow: 'auto' }}>
+                  {selectedLeads.length > 0 ? (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {selectedLeads.map((lead) => (
+                        <Chip
+                          key={lead.id}
+                          label={`${lead.name} (${lead.email})`}
+                          color="secondary"
+                          variant="outlined"
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography color="textSecondary">No leads selected</Typography>
+                  )}
+                </Paper>
+
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+                  <Button 
+                    variant="contained" 
+                    color="primary" 
+                    onClick={handleAddSelectedLeads}
+                    disabled={selectedLeads.length === 0}
+                  >
+                    Add Selected Leads to Recipients
+                  </Button>
+                </Box>
+
+                <Typography variant="subtitle1" gutterBottom>
+                  Current Recipients ({emailData.recipients.length})
+                </Typography>
+                
+                <Paper variant="outlined" sx={{ p: 2, mb: 3, maxHeight: '200px', overflow: 'auto' }}>
+                  {emailData.recipients.length > 0 ? (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {emailData.recipients.map((recipient, index) => (
+                        <Chip
+                          key={index}
+                          label={recipient.address}
+                          onDelete={() => handleRemoveRecipient(index)}
+                          color="primary"
+                          variant="outlined"
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography color="textSecondary">No recipients added yet</Typography>
+                  )}
+                </Paper>
+              </Box>
+            )}
+
+            {tabValue === 2 && (
+              <Box>
+                <Typography variant="subtitle1" gutterBottom>
+                  Add Attachments
+                </Typography>
+                
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                  <Grid item xs={12}>
+                    <Button
+                      variant="outlined"
+                      component="label"
+                      startIcon={<AttachFileIcon />}
+                      sx={{ mb: 2 }}
+                    >
+                      Attach File
+                      <input
+                        type="file"
+                        hidden
+                        onChange={handleFileUpload}
+                        accept={ALLOWED_FILE_TYPES.join(',')}
+                      />
+                    </Button>
+                    
+                    {fileUploadError && (
+                      <Alert severity="error" sx={{ mt: 1 }}>
+                        {fileUploadError}
+                      </Alert>
+                    )}
+                    
+                    <Typography variant="caption" display="block" color="textSecondary" sx={{ mt: 1 }}>
+                      Max file size: 5MB. Allowed file types: Images, PDF, Word, Excel, Text
+                    </Typography>
+                  </Grid>
+                </Grid>
+
+                <Typography variant="subtitle1" gutterBottom>
+                  Current Attachments ({emailData.attachments.length})
+                </Typography>
+                
+                <Paper variant="outlined" sx={{ p: 2, mb: 3, maxHeight: '200px', overflow: 'auto' }}>
+                  {emailData.attachments.length > 0 ? (
+                    <List>
+                      {emailData.attachments.map((file, index) => (
+                        <ListItem key={index}>
+                          <ListItemIcon>
+                            <FileIcon />
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary={file.name}
+                            secondary={formatFileSize(file.size)}
+                          />
+                          <ListItemSecondaryAction>
+                            <IconButton edge="end" onClick={() => handleRemoveAttachment(index)}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </ListItemSecondaryAction>
+                        </ListItem>
+                      ))}
+                    </List>
+                  ) : (
+                    <Typography color="textSecondary">No attachments added yet</Typography>
+                  )}
+                </Paper>
+              </Box>
+            )}
+
+            {errorMessage && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {errorMessage}
+              </Alert>
+            )}
+
+            {successMessage && (
+              <Alert severity="success" sx={{ mb: 3 }}>
+                {successMessage}
+              </Alert>
+            )}
+
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
+                onClick={sendBulkEmails}
+                disabled={loading || emailData.recipients.length === 0}
               >
-                Add Selected Leads to Recipients
+                {loading ? 'Sending...' : 'Send Emails'}
               </Button>
             </Box>
-
-            <Typography variant="subtitle1" gutterBottom>
-              Current Recipients ({emailData.recipients.length})
-            </Typography>
-            
-            <Paper variant="outlined" sx={{ p: 2, mb: 3, maxHeight: '200px', overflow: 'auto' }}>
-              {emailData.recipients.length > 0 ? (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {emailData.recipients.map((recipient, index) => (
-                    <Chip
-                      key={index}
-                      label={recipient.address}
-                      onDelete={() => handleRemoveRecipient(index)}
-                      color="primary"
-                      variant="outlined"
-                    />
-                  ))}
-                </Box>
-              ) : (
-                <Typography color="textSecondary">No recipients added yet</Typography>
-              )}
-            </Paper>
-          </Box>
+          </>
         )}
 
-        {tabValue === 2 && (
+        {mainTabValue === 1 && (
           <Box>
-            <Typography variant="subtitle1" gutterBottom>
-              Add Attachments
-            </Typography>
-            
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12}>
-                <Button
-                  variant="outlined"
-                  component="label"
-                  startIcon={<AttachFileIcon />}
-                  sx={{ mb: 2 }}
-                >
-                  Attach File
-                  <input
-                    type="file"
-                    hidden
-                    onChange={handleFileUpload}
-                    accept={ALLOWED_FILE_TYPES.join(',')}
-                  />
-                </Button>
-                
-                {fileUploadError && (
-                  <Alert severity="error" sx={{ mt: 1 }}>
-                    {fileUploadError}
-                  </Alert>
-                )}
-                
-                <Typography variant="caption" display="block" color="textSecondary" sx={{ mt: 1 }}>
-                  Max file size: 5MB. Allowed file types: Images, PDF, Word, Excel, Text
-                </Typography>
-              </Grid>
-            </Grid>
-
-            <Typography variant="subtitle1" gutterBottom>
-              Current Attachments ({emailData.attachments.length})
-            </Typography>
-            
-            <Paper variant="outlined" sx={{ p: 2, mb: 3, maxHeight: '200px', overflow: 'auto' }}>
-              {emailData.attachments.length > 0 ? (
-                <List>
-                  {emailData.attachments.map((file, index) => (
-                    <ListItem key={index}>
-                      <ListItemIcon>
-                        <FileIcon />
-                      </ListItemIcon>
-                      <ListItemText 
-                        primary={file.name}
-                        secondary={formatFileSize(file.size)}
-                      />
-                      <ListItemSecondaryAction>
-                        <IconButton edge="end" onClick={() => handleRemoveAttachment(index)}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                  ))}
-                </List>
-              ) : (
-                <Typography color="textSecondary">No attachments added yet</Typography>
-              )}
-            </Paper>
+            {(() => {
+              const SentEmailsPage = dynamic(() => import('./sent-emails'), {
+                loading: () => <CircularProgress />,
+              });
+              return <SentEmailsPage />;
+            })()}
           </Box>
         )}
-
-        {errorMessage && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {errorMessage}
-          </Alert>
-        )}
-
-        {successMessage && (
-          <Alert severity="success" sx={{ mb: 3 }}>
-            {successMessage}
-          </Alert>
-        )}
-
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
-            onClick={sendBulkEmails}
-            disabled={loading || emailData.recipients.length === 0}
-          >
-            {loading ? 'Sending...' : 'Send Emails'}
-          </Button>
-        </Box>
       </Paper>
     </Box>
   );

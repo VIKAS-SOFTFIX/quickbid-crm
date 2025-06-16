@@ -14,7 +14,7 @@ import {
 } from '@/services/demoActivityService';
 
 // Define the BASE_URL
-const BASE_URL = 'http://localhost:7505';
+const BASE_URL = 'https://api.quickbid.co.in/support';
 
 // Timeline event interface
 export interface TimelineEvent {

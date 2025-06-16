@@ -3,7 +3,7 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-const API_URL = 'http://localhost:7505/api';
+const API_URL = 'https://api.quickbid.co.in/support/api';
 const AUTH_COOKIE_NAME = 'auth_token';
 
 // Helper function to ensure the auth token is set as a cookie

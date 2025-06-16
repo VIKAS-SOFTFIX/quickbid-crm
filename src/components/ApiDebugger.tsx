@@ -6,7 +6,7 @@ export default function ApiDebugger() {
   const [response, setResponse] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [url, setUrl] = useState('http://localhost:7505/api/demos');
+  const [url, setUrl] = useState('https://api.quickbid.co.in/support/api/demos');
 
   const testApi = async () => {
     setLoading(true);

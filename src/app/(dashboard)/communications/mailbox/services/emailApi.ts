@@ -12,7 +12,7 @@ import {
   EmailBody 
 } from '../types';
 
-const API_BASE_URL = 'http://localhost:7505/api/email';
+const API_BASE_URL = 'https://api.quickbid.co.in/support/api/email';
 
 // Helper function to add auth headers
 const getAuthHeaders = () => {

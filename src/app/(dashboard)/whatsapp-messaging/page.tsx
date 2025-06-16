@@ -1,959 +1,810 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Divider,
-  FormControl,
-  Grid,
-  IconButton,
-  InputAdornment,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Snackbar,
-  Stack,
-  Tab,
-  Tabs,
-  TextField,
   Typography,
+  Paper,
+  Grid,
+  TextField,
+  Button,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  ListItemAvatar,
+  Avatar,
+  Divider,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormHelperText,
+  CircularProgress,
   Alert,
+  useTheme,
+  Tooltip,
+  Badge,
 } from '@mui/material';
 import {
   Send as SendIcon,
-  WhatsApp as WhatsAppIcon,
+  Add as AddIcon,
   Refresh as RefreshIcon,
+  Settings as SettingsIcon,
+  WhatsApp as WhatsAppIcon,
   Phone as PhoneIcon,
-  Message as MessageIcon,
+  Person as PersonIcon,
   Description as TemplateIcon,
-  PersonSearch as PersonSearchIcon,
+  Check as CheckIcon,
+  CheckCircle as CheckCircleIcon,
+  InsertDriveFile as FileIcon,
 } from '@mui/icons-material';
-import { API_CONFIG } from '@/config/api';
+import { useWhatsApp } from '@/hooks/useWhatsApp';
+import { WhatsAppContact, WhatsAppMessage, WhatsAppTemplate } from '@/services/whatsappService';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`whatsapp-tabpanel-${index}`}
-      aria-labelledby={`whatsapp-tab-${index}`}
-      {...other}
-      style={{ width: '100%' }}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
-
-interface Message {
-  id: string;
-  type: 'sent' | 'received';
-  content: string;
-  timestamp: Date;
-  status?: 'sent' | 'delivered' | 'read';
-}
-
-interface Contact {
-  id: string;
-  name: string;
-  phone: string;
-  lastMessage?: {
-    content: string;
-    timestamp: Date;
-  };
+// Extended interfaces to match the API data structure
+interface ExtendedWhatsAppContact extends Omit<WhatsAppContact, 'lastMessageAt'> {
+  lastMessageAt?: string;
+  lastMessage?: string;
   unreadCount?: number;
+  conversationStarted?: boolean;
 }
 
-interface Template {
-  id: string;
-  name: string;
-  status: string;
-  category: string;
-  language: string;
+// Define a completely custom interface for the messages from the API
+interface ApiWhatsAppMessage {
+  _id: string;
+  messageId: string;
+  waId: string;
+  contactId?: string;
+  direction?: 'inbound' | 'outbound';
+  type?: string;
+  status?: 'sent' | 'delivered' | 'read' | 'failed';
+  content?: string;
+  timestamp: string;
+  createdAt: string;
+  updatedAt: string;
+  text?: {
+    body: string;
+  };
+  image?: {
+    url?: string;
+    caption?: string;
+  };
+  document?: {
+    url?: string;
+    filename?: string;
+  };
+  isFromMe?: boolean;
 }
 
 export default function WhatsAppMessagingPage() {
-  const [activeTab, setActiveTab] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const [messageInput, setMessageInput] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [alertMessage, setAlertMessage] = useState('');
-  const [alertSeverity, setAlertSeverity] = useState<'success' | 'error'>('success');
-  const [alertOpen, setAlertOpen] = useState(false);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState('');
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const theme = useTheme();
+  const {
+    loading,
+    error,
+    success,
+    contacts,
+    selectedContact,
+    messages,
+    templates,
+    isClient,
+    fetchContacts,
+    fetchTemplates,
+    sendTextMessage,
+    sendTemplateMessage,
+    createContact,
+    testWebhook,
+    selectContact,
+    setError,
+    setSuccess,
+  } = useWhatsApp();
 
-  // Mock leads data
-  const mockLeads = [
-    {
-      id: '1',
-      name: 'John Doe',
-      email: 'john@example.com',
-      phone: '+91 98765 43210',
-      company: 'Tech Solutions Pvt Ltd',
-      source: 'website',
-      status: 'new',
-      priority: 'high',
-      assignedTo: 'sales1',
-      notes: [
-        {
-          id: '1',
-          leadId: '1',
-          content: 'Interested in enterprise plan',
-          createdBy: 'sales1',
-          createdAt: '2024-03-25T10:00:00Z',
-          type: 'note'
-        }
-      ],
-      createdAt: '2024-03-25T10:00:00Z'
-    },
-    {
-      id: '2',
-      name: 'Jane Smith',
-      email: 'jane@example.com',
-      phone: '+91 98765 43211',
-      company: 'Digital Marketing Agency',
-      source: 'google_ads',
-      status: 'contacted',
-      priority: 'medium',
-      assignedTo: 'sales2',
-      notes: [
-        {
-          id: '4',
-          leadId: '2',
-          content: 'Looking for bulk pricing',
-          createdBy: 'sales2',
-          createdAt: '2024-03-24T09:00:00Z',
-          type: 'note'
-        }
-      ],
-      createdAt: '2024-03-24T09:00:00Z'
-    }
-  ];
+  // Local state
+  const [tabValue, setTabValue] = useState(0);
+  const [messageText, setMessageText] = useState('');
+  const [newContactDialogOpen, setNewContactDialogOpen] = useState(false);
+  const [newContact, setNewContact] = useState({ name: '', phoneNumber: '' });
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [webhookTestDialogOpen, setWebhookTestDialogOpen] = useState(false);
+  const [testPhoneNumber, setTestPhoneNumber] = useState('');
+  
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Mock templates data
-  const mockTemplates = [
-    {
-      id: '1',
-      name: 'welcome_message',
-      status: 'approved',
-      category: 'MARKETING',
-      language: 'en'
-    },
-    {
-      id: '2',
-      name: 'appointment_reminder',
-      status: 'approved',
-      category: 'UTILITY',
-      language: 'en'
-    },
-    {
-      id: '3',
-      name: 'demo_confirmation',
-      status: 'approved',
-      category: 'UTILITY',
-      language: 'en'
-    }
-  ];
-
+  // Scroll to bottom of messages when messages change
   useEffect(() => {
-    // Initialize contacts from leads
-    const leadContacts = mockLeads.map(lead => ({
-      id: lead.id,
-      name: lead.name,
-      phone: lead.phone || '',
-      lastMessage: {
-        content: 'No messages yet',
-        timestamp: new Date()
-      },
-      unreadCount: 0
-    })).filter(contact => contact.phone);
-    
-    setContacts(leadContacts);
-    
-    // Set mock templates
-    setTemplates(mockTemplates);
-  }, []);
-
-  const loadTemplates = async () => {
-    try {
-      setLoading(true);
-      // In a real implementation, this would be an API call
-      setTemplates(mockTemplates);
-      return mockTemplates;
-    } catch (error) {
-      console.error('Error loading templates:', error);
-      showAlert('Failed to load WhatsApp templates', 'error');
-      return [];
-    } finally {
-      setLoading(false);
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  };
+  }, [messages]);
 
+  // Handle tab change
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
+    setTabValue(newValue);
   };
 
+  // Handle sending a text message
   const handleSendMessage = async () => {
-    if (!messageInput.trim() || !phoneNumber.trim()) return;
-    
+    if (!selectedContact || !messageText.trim()) return;
+
     try {
-      setSendingMessage(true);
+      await sendTextMessage({
+        phoneNumber: selectedContact.phoneNumber,
+        message: messageText,
+      });
+      setMessageText('');
       
-      const formattedPhone = formatPhoneNumber(phoneNumber);
-      console.log('Sending message to:', formattedPhone);
-      console.log('Message content:', messageInput);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Add to messages
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        type: 'sent',
-        content: messageInput,
-        timestamp: new Date(),
-        status: 'sent'
-      };
-      
-      setMessages([...messages, newMessage]);
-      setMessageInput('');
-      showAlert('Message sent successfully', 'success');
-    } catch (error) {
-      console.error('Error sending message:', error);
-      showAlert(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-    } finally {
-      setSendingMessage(false);
+      // Refresh messages after sending
+      if (selectedContact.waId) {
+        // In a real app, you'd want to add the message to the list immediately
+        // and then refresh after a delay to get the server's response
+        setTimeout(() => {
+          fetchContacts();
+        }, 1000);
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
     }
   };
 
+  // Handle sending a template message
   const handleSendTemplate = async () => {
-    if (!selectedTemplate || !phoneNumber.trim()) return;
-    
+    if (!selectedContact || !selectedTemplate) return;
+
     try {
-      setSendingMessage(true);
+      await sendTemplateMessage({
+        phoneNumber: selectedContact.phoneNumber,
+        templateName: selectedTemplate,
+        languageCode: 'en', // Default to English
+      });
+      setTemplateDialogOpen(false);
+      setSelectedTemplate('');
       
-      const formattedPhone = formatPhoneNumber(phoneNumber);
-      console.log('Sending template to:', formattedPhone);
-      
-      const template = templates.find(t => t.name === selectedTemplate);
-      
-      if (!template) {
-        showAlert('Selected template not found', 'error');
-        return;
+      // Refresh messages after sending
+      if (selectedContact.waId) {
+        // In a real app, you'd want to add the message to the list immediately
+        // and then refresh after a delay to get the server's response
+        setTimeout(() => {
+          fetchContacts();
+        }, 1000);
       }
-      
-      console.log('Using template:', template);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Add to messages
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        type: 'sent',
-        content: `Template: ${template.name}`,
-        timestamp: new Date(),
-        status: 'sent'
-      };
-      
-      setMessages([...messages, newMessage]);
-      showAlert('Template message sent successfully', 'success');
-    } catch (error) {
-      console.error('Error sending template message:', error);
-      showAlert(`Failed to send template message: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-    } finally {
-      setSendingMessage(false);
+    } catch (err) {
+      console.error('Error sending template message:', err);
     }
   };
 
-  const handleContactSelect = (contact: Contact) => {
-    setSelectedContact(contact);
-    setPhoneNumber(contact.phone);
-    
-    // In a real app, you would fetch messages for this contact
-    // For now, we'll use mock messages
-    const mockContactMessages: Message[] = [
-      {
-        id: '1',
-        type: 'received',
-        content: 'Hello, I\'m interested in your product',
-        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000) // 1 day ago
-      },
-      {
-        id: '2',
-        type: 'sent',
-        content: 'Thank you for your interest! How can I help you?',
-        timestamp: new Date(Date.now() - 23 * 60 * 60 * 1000),
-        status: 'read'
-      },
-      {
-        id: '3',
-        type: 'received',
-        content: 'Can you tell me more about pricing?',
-        timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000)
-      }
-    ];
-    
-    setMessages(mockContactMessages);
-  };
+  // Handle creating a new contact
+  const handleCreateContact = async () => {
+    if (!newContact.name || !newContact.phoneNumber) return;
 
-  const formatPhoneNumber = (phone: string): string => {
-    // Remove any non-numeric characters except the + sign at the beginning
-    let cleaned = phone.trim();
-    
-    // If it starts with +, remove it as WhatsApp API doesn't need it
-    if (cleaned.startsWith('+')) {
-      cleaned = cleaned.substring(1);
+    try {
+      await createContact({
+        name: newContact.name,
+        phoneNumber: newContact.phoneNumber,
+      });
+      setNewContactDialogOpen(false);
+      setNewContact({ name: '', phoneNumber: '' });
+      fetchContacts();
+    } catch (err) {
+      console.error('Error creating contact:', err);
     }
-    
-    // Remove any remaining non-numeric characters
-    cleaned = cleaned.replace(/\D/g, '');
-    
-    // Debug the phone number being sent
-    console.log('Formatted phone number:', cleaned);
-    
-    return cleaned;
   };
 
-  const filteredContacts = contacts.filter(contact => 
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contact.phone.includes(searchQuery)
-  );
-
-  const showAlert = (message: string, severity: 'success' | 'error') => {
-    setAlertMessage(message);
-    setAlertSeverity(severity);
-    setAlertOpen(true);
-  };
-
+  // Handle testing the webhook
   const handleTestWebhook = async () => {
+    if (!testPhoneNumber) return;
+
     try {
-      setLoading(true);
-      
-      if (!phoneNumber.trim()) {
-        showAlert('Please enter your phone number to test the webhook', 'error');
-        return;
-      }
-      
-      const formattedPhone = formatPhoneNumber(phoneNumber);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      showAlert('Webhook test message sent successfully', 'success');
-    } catch (error) {
-      console.error('Error testing webhook:', error);
-      showAlert(`Failed to test webhook: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-    } finally {
-      setLoading(false);
+      await testWebhook(testPhoneNumber);
+      setWebhookTestDialogOpen(false);
+      setTestPhoneNumber('');
+    } catch (err) {
+      console.error('Error testing webhook:', err);
     }
   };
 
-  const handleGetWebhookStatus = async () => {
-    try {
-      setLoading(true);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      showAlert('Webhook is configured and active', 'success');
-    } catch (error) {
-      console.error('Error getting webhook status:', error);
-      showAlert(`Failed to get webhook status: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-    } finally {
-      setLoading(false);
-    }
+  // Format timestamp
+  const formatTimestamp = (timestamp: string) => {
+    return new Date(timestamp).toLocaleString();
   };
 
-  const handleWebhookSetup = async () => {
-    try {
-      setLoading(true);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      showAlert('Webhook setup completed successfully', 'success');
-    } catch (error) {
-      console.error('Error setting up webhook:', error);
-      showAlert(`Failed to set up webhook: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-    } finally {
-      setLoading(false);
+  // Format last message time
+  const formatLastMessageTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays > 0) {
+      return `${diffDays}d ago`;
     }
+    
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffHours > 0) {
+      return `${diffHours}h ago`;
+    }
+    
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    if (diffMins > 0) {
+      return `${diffMins}m ago`;
+    }
+    
+    return 'Just now';
   };
+
+  // If we're server-side rendering, return a minimal placeholder
+  if (!isClient) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ py: 3, px: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" component="h1">
-          <WhatsAppIcon sx={{ color: '#25D366', mr: 1, verticalAlign: 'middle' }} />
-          WhatsApp Messaging
+    <Box sx={{ p: 3 }}>
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <WhatsAppIcon sx={{ color: '#25D366', mr: 1, fontSize: 30 }} />
+          <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
+            WhatsApp Messaging
+          </Typography>
+        </Box>
+        
+        <Typography color="textSecondary" sx={{ mb: 3 }}>
+          Send and manage WhatsApp messages to your contacts
         </Typography>
-        <Button 
-          variant="outlined" 
-          size="small"
-          onClick={async () => {
-            try {
-              setLoading(true);
-              showAlert('Testing WhatsApp API connection...', 'success');
-              
-              // First try to get templates to verify API connection
-              const templates = await loadTemplates();
-              console.log('WhatsApp templates response:', templates);
-              
-              // Log API configuration for debugging
-              console.log('WhatsApp Phone Number ID:', API_CONFIG.meta.whatsappPhoneNumberId);
-              console.log('WhatsApp Business ID:', API_CONFIG.meta.whatsappBusinessId);
-              console.log('Access Token (partial):', API_CONFIG.meta.accessToken.substring(0, 10) + '...');
-              
-              if (templates && Array.isArray(templates)) {
-                showAlert(`Connection successful! Found ${templates.length} templates.`, 'success');
-              } else {
-                showAlert('Connection successful but no templates found.', 'success');
-              }
-            } catch (error) {
-              console.error('API Test Error:', error);
-              showAlert(`Connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-            } finally {
-              setLoading(false);
-            }
-          }}
-          startIcon={loading ? <CircularProgress size={20} /> : <RefreshIcon />}
-        >
-          Test Connection
-        </Button>
-      </Box>
 
-      <Tabs
-        value={activeTab}
-        onChange={handleTabChange}
-        aria-label="WhatsApp messaging tabs"
-        sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
-      >
-        <Tab label="Send Message" icon={<MessageIcon />} iconPosition="start" />
-        <Tab label="Templates" icon={<TemplateIcon />} iconPosition="start" />
-        <Tab label="Contacts" icon={<PersonSearchIcon />} iconPosition="start" />
-        <Tab label="Webhook Setup" icon={<RefreshIcon />} iconPosition="start" />
-      </Tabs>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => setNewContactDialogOpen(true)}
+            sx={{ mr: 1 }}
+          >
+            New Contact
+          </Button>
+          <Button 
+            variant="outlined" 
+            startIcon={<RefreshIcon />}
+            onClick={() => {
+              fetchContacts();
+              fetchTemplates();
+            }}
+            sx={{ mr: 1 }}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<SettingsIcon />}
+            onClick={() => setWebhookTestDialogOpen(true)}
+          >
+            Test Webhook
+          </Button>
+        </Box>
 
-      <TabPanel value={activeTab} index={0}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
-            <Paper elevation={0} variant="outlined" sx={{ p: 2, height: '70vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Contacts
-                <IconButton size="small" onClick={() => {}} sx={{ ml: 1 }}>
-                  <RefreshIcon />
-                </IconButton>
-              </Typography>
-              
-              <TextField
-                fullWidth
-                variant="outlined"
-                placeholder="Search contacts..."
-                size="small"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                sx={{ mb: 2 }}
-              />
-              
-              <Box sx={{ overflow: 'auto', flexGrow: 1 }}>
-                <Stack spacing={1}>
-                  {filteredContacts.map((contact) => (
-                    <Card 
-                      key={contact.id} 
-                      variant="outlined" 
-                      sx={{ 
-                        cursor: 'pointer', 
-                        bgcolor: selectedContact?.id === contact.id ? 'action.selected' : 'background.paper',
-                        '&:hover': { bgcolor: 'action.hover' } 
-                      }}
-                      onClick={() => handleContactSelect(contact)}
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        {success && (
+          <Alert severity="success" sx={{ mb: 3 }}>
+            {success}
+          </Alert>
+        )}
+
+        <Grid container spacing={2}>
+          {/* Contacts List */}
+          <Grid item xs={12} md={3}>
+            <Paper 
+              variant="outlined" 
+              sx={{ 
+                height: '70vh', 
+                overflow: 'auto',
+                borderRadius: 2,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+              }}
+            >
+              <List sx={{ p: 0 }}>
+                <ListItem sx={{ bgcolor: theme.palette.background.default, position: 'sticky', top: 0, zIndex: 1 }}>
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    Contacts ({contacts.length})
+                  </Typography>
+                </ListItem>
+                <Divider />
+                {loading && contacts.length === 0 ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                    <CircularProgress size={30} />
+                  </Box>
+                ) : contacts.length === 0 ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography color="textSecondary">No contacts found</Typography>
+                    <Button
+                      variant="text"
+                      startIcon={<AddIcon />}
+                      onClick={() => setNewContactDialogOpen(true)}
+                      sx={{ mt: 1 }}
                     >
-                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="subtitle1">{contact.name}</Typography>
-                          {contact.unreadCount ? (
-                            <Chip 
-                              label={contact.unreadCount} 
-                              size="small" 
-                              color="primary" 
-                              sx={{ height: 20, minWidth: 20 }} 
-                            />
-                          ) : null}
-                        </Box>
-                        <Typography variant="body2" color="text.secondary">
-                          {contact.phone}
-                        </Typography>
-                        {contact.lastMessage && (
-                          <Typography 
-                            variant="caption" 
-                            color="text.secondary" 
-                            sx={{ 
-                              display: 'block', 
-                              mt: 1, 
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis' 
-                            }}
-                          >
-                            {contact.lastMessage.content}
-                          </Typography>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                  
-                  {filteredContacts.length === 0 && (
-                    <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
-                      No contacts found
-                    </Typography>
-                  )}
-                </Stack>
-              </Box>
-            </Paper>
-          </Grid>
-          
-          <Grid item xs={12} md={8}>
-            <Paper elevation={0} variant="outlined" sx={{ height: '70vh', display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-                {selectedContact ? (
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography variant="h6">{selectedContact.name}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        <PhoneIcon fontSize="small" sx={{ mr: 0.5, fontSize: 14, verticalAlign: 'middle' }} />
-                        {selectedContact.phone}
-                      </Typography>
-                    </Box>
+                      Add Contact
+                    </Button>
                   </Box>
                 ) : (
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <TextField
-                      fullWidth
-                      label="Recipient Phone Number"
-                      placeholder="+1 (555) 123-4567"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <PhoneIcon />
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  </Box>
-                )}
-              </Box>
-              
-              <Box sx={{ p: 2, flexGrow: 1, overflow: 'auto', bgcolor: '#F5F5F5' }}>
-                {messages.length > 0 ? (
-                  <Stack spacing={2}>
-                    {messages.map((message) => (
-                      <Box
-                        key={message.id}
+                  contacts.map((contact) => (
+                    <React.Fragment key={contact._id}>
+                      <ListItemButton
+                        selected={selectedContact?._id === contact._id}
+                        onClick={() => selectContact(contact)}
                         sx={{
-                          display: 'flex',
-                          justifyContent: message.type === 'sent' ? 'flex-end' : 'flex-start',
+                          '&.Mui-selected': {
+                            bgcolor: 'rgba(37, 211, 102, 0.1)',
+                          },
+                          '&:hover': {
+                            bgcolor: 'rgba(37, 211, 102, 0.05)',
+                          }
                         }}
                       >
-                        <Paper
-                          elevation={0}
-                          sx={{
-                            p: 2,
-                            maxWidth: '70%',
-                            borderRadius: 2,
-                            bgcolor: message.type === 'sent' ? '#DCF8C6' : '#FFFFFF',
+                        <ListItemAvatar>
+                          <Badge 
+                            color="success" 
+                            badgeContent={(contact as ExtendedWhatsAppContact).unreadCount || 0} 
+                            invisible={!(contact as ExtendedWhatsAppContact).unreadCount}
+                            overlap="circular"
+                          >
+                            <Avatar sx={{ bgcolor: 'rgba(37, 211, 102, 0.8)' }}>
+                              {contact.profilePicture ? (
+                                <img src={contact.profilePicture} alt={contact.name} />
+                              ) : (
+                                <PersonIcon />
+                              )}
+                            </Avatar>
+                          </Badge>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={contact.name}
+                          secondary={
+                            <React.Fragment>
+                              <Typography
+                                component="span"
+                                variant="body2"
+                                color="textSecondary"
+                                sx={{ display: 'block' }}
+                              >
+                                {contact.phoneNumber}
+                              </Typography>
+                              {(contact as ExtendedWhatsAppContact).lastMessage && (
+                                <Typography
+                                  component="span"
+                                  variant="body2"
+                                  color="textSecondary"
+                                  sx={{ 
+                                    display: 'block',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    maxWidth: '120px',
+                                    fontSize: '0.75rem',
+                                    opacity: 0.8
+                                  }}
+                                >
+                                  {(contact as ExtendedWhatsAppContact).lastMessage}
+                                </Typography>
+                              )}
+                            </React.Fragment>
+                          }
+                          primaryTypographyProps={{
+                            fontWeight: selectedContact?._id === contact._id ? 'bold' : 'normal',
                           }}
-                        >
-                          <Typography variant="body2">{message.content}</Typography>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ display: 'block', mt: 0.5, textAlign: 'right' }}
+                        />
+                        {contact.lastMessageAt && (
+                          <Typography 
+                            variant="caption" 
+                            color="textSecondary"
+                            sx={{ 
+                              fontSize: '0.7rem',
+                              opacity: 0.7
+                            }}
                           >
-                            {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            {message.type === 'sent' && message.status && (
-                              <span style={{ marginLeft: 4 }}>
-                                {message.status === 'read' ? '✓✓' : '✓'}
-                              </span>
-                            )}
+                            {formatLastMessageTime(contact.lastMessageAt)}
                           </Typography>
-                        </Paper>
-                      </Box>
-                    ))}
-                  </Stack>
-                ) : (
-                  <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">
-                      {phoneNumber ? 'No messages yet. Start the conversation!' : 'Enter a phone number to start messaging'}
-                    </Typography>
-                  </Box>
+                        )}
+                      </ListItemButton>
+                      <Divider />
+                    </React.Fragment>
+                  ))
                 )}
-              </Box>
-              
-              <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-                <Box sx={{ display: 'flex' }}>
-                  <TextField
-                    fullWidth
-                    placeholder="Type a message..."
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    disabled={!phoneNumber || sendingMessage}
-                    variant="outlined"
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton 
-                            onClick={handleSendMessage}
-                            disabled={!messageInput.trim() || !phoneNumber || sendingMessage}
-                            color="primary"
-                          >
-                            {sendingMessage ? <CircularProgress size={24} /> : <SendIcon />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Box>
-              </Box>
-            </Paper>
-          </Grid>
-        </Grid>
-      </TabPanel>
-
-      <TabPanel value={activeTab} index={1}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
-            <Paper elevation={0} variant="outlined" sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 3 }}>
-                Send Template Message
-                <IconButton size="small" onClick={loadTemplates} sx={{ ml: 1 }}>
-                  <RefreshIcon />
-                </IconButton>
-              </Typography>
-              
-              <Stack spacing={3}>
-                <TextField
-                  fullWidth
-                  label="Recipient Phone Number"
-                  placeholder="+1 (555) 123-4567"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PhoneIcon />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-                
-                <FormControl fullWidth>
-                  <InputLabel id="template-select-label">Select Template</InputLabel>
-                  <Select
-                    labelId="template-select-label"
-                    value={selectedTemplate}
-                    onChange={(e) => setSelectedTemplate(e.target.value)}
-                    label="Select Template"
-                  >
-                    {templates.map((template) => (
-                      <MenuItem key={template.id} value={template.name}>
-                        {template.name} ({template.language})
-                      </MenuItem>
-                    ))}
-                    {templates.length === 0 && (
-                      <MenuItem disabled value="">
-                        {loading ? 'Loading templates...' : 'No templates available'}
-                      </MenuItem>
-                    )}
-                  </Select>
-                </FormControl>
-                
-                <Button
-                  variant="contained"
-                  startIcon={sendingMessage ? <CircularProgress size={20} /> : <SendIcon />}
-                  disabled={!selectedTemplate || !phoneNumber || sendingMessage}
-                  onClick={handleSendTemplate}
-                  fullWidth
-                >
-                  {sendingMessage ? 'Sending...' : 'Send Template Message'}
-                </Button>
-              </Stack>
+              </List>
             </Paper>
           </Grid>
           
-          <Grid item xs={12} md={8}>
-            <Paper elevation={0} variant="outlined" sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 3 }}>Available Templates</Typography>
-              
-              {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                  <CircularProgress />
-                </Box>
-              ) : (
-                <>
-                  {templates.length > 0 ? (
-                    <Grid container spacing={2}>
-                      {templates.map((template) => (
-                        <Grid item xs={12} sm={6} key={template.id}>
-                          <Card variant="outlined">
-                            <CardContent>
-                              <Typography variant="subtitle1">{template.name}</Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                Language: {template.language}
-                              </Typography>
-                              <Box sx={{ mt: 1 }}>
-                                <Chip 
-                                  label={template.status} 
-                                  size="small" 
-                                  color={template.status === 'APPROVED' ? 'success' : 'warning'}
-                                  sx={{ mr: 1 }}
-                                />
-                                <Chip 
-                                  label={template.category} 
-                                  size="small" 
-                                  variant="outlined"
-                                />
-                              </Box>
-                            </CardContent>
-                          </Card>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  ) : (
-                    <Box sx={{ textAlign: 'center', p: 3 }}>
-                      <Typography color="text.secondary">
-                        No templates available. Templates need to be created in the Meta Business Manager.
+          {/* Chat Area */}
+          <Grid item xs={12} md={9}>
+            {selectedContact ? (
+              <Paper 
+                variant="outlined" 
+                sx={{ 
+                  height: '70vh', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  borderRadius: 2,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                  overflow: 'hidden'
+                }}
+              >
+                {/* Contact Header */}
+                <Box sx={{ p: 2, bgcolor: 'rgba(37, 211, 102, 0.1)', borderBottom: `1px solid ${theme.palette.divider}` }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Avatar sx={{ mr: 1, bgcolor: 'rgba(37, 211, 102, 0.8)' }}>
+                      {selectedContact.profilePicture ? (
+                        <img src={selectedContact.profilePicture} alt={selectedContact.name} />
+                      ) : (
+                        <PersonIcon />
+                      )}
+                    </Avatar>
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight="bold">
+                        {selectedContact.name}
                       </Typography>
-                      <Button
-                        variant="outlined"
-                        sx={{ mt: 2 }}
-                        onClick={() => window.open('https://business.facebook.com/', '_blank')}
-                      >
-                        Go to Meta Business Manager
-                      </Button>
+                      <Typography variant="body2" color="textSecondary">
+                        {selectedContact.phoneNumber}
+                      </Typography>
                     </Box>
-                  )}
-                </>
-              )}
-            </Paper>
-          </Grid>
-        </Grid>
-      </TabPanel>
-
-      <TabPanel value={activeTab} index={2}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={12}>
-            <Paper elevation={0} variant="outlined" sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6">Manage Contacts</Typography>
-                <TextField
-                  placeholder="Search contacts..."
-                  size="small"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  sx={{ width: 300 }}
-                />
-              </Box>
-              
-              <Divider sx={{ mb: 3 }} />
-              
-              {filteredContacts.length > 0 ? (
-                <Grid container spacing={2}>
-                  {filteredContacts.map((contact) => (
-                    <Grid item xs={12} sm={6} md={4} key={contact.id}>
-                      <Card variant="outlined">
-                        <CardContent>
-                          <Typography variant="subtitle1">{contact.name}</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            <PhoneIcon fontSize="small" sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />
-                            {contact.phone}
-                          </Typography>
-                          
-                          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              startIcon={<WhatsAppIcon />}
-                              onClick={() => {
-                                setPhoneNumber(contact.phone);
-                                setSelectedContact(contact);
-                                setActiveTab(0);
+                    <Box sx={{ ml: 'auto' }}>
+                      <Tooltip title="Send Template Message">
+                        <IconButton onClick={() => setTemplateDialogOpen(true)}>
+                          <TemplateIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Call">
+                        <IconButton>
+                          <PhoneIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                </Box>
+                
+                {/* Messages */}
+                <Box 
+                  sx={{ 
+                    flexGrow: 1, 
+                    overflow: 'auto', 
+                    p: 2, 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    bgcolor: '#f5f5f5',
+                    backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z\' fill=\'%2325d366\' fill-opacity=\'0.05\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")'
+                  }}
+                >
+                  {loading && messages.length === 0 ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                      <CircularProgress />
+                    </Box>
+                  ) : messages.length === 0 ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', flexDirection: 'column' }}>
+                      <WhatsAppIcon sx={{ fontSize: 40, color: '#25D366', opacity: 0.5, mb: 2 }} />
+                      <Typography color="textSecondary">No messages yet. Start the conversation!</Typography>
+                    </Box>
+                  ) : (
+                    messages.map((message) => {
+                      const apiMessage = message as ApiWhatsAppMessage;
+                      // Determine if message is from me based on direction or isFromMe property
+                      const isFromMe = apiMessage.direction === 'outbound' || apiMessage.isFromMe;
+                      
+                      return (
+                        <Box
+                          key={message._id}
+                          sx={{
+                            alignSelf: isFromMe ? 'flex-end' : 'flex-start',
+                            maxWidth: '70%',
+                            mb: 2,
+                          }}
+                        >
+                          <Paper
+                            sx={{
+                              p: 1.5,
+                              bgcolor: isFromMe ? '#DCF8C6' : '#FFFFFF',
+                              color: '#303030',
+                              borderRadius: '12px',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                              position: 'relative',
+                              '&::before': isFromMe ? {
+                                content: '""',
+                                position: 'absolute',
+                                right: '-8px',
+                                top: '8px',
+                                border: '8px solid transparent',
+                                borderLeft: '8px solid #DCF8C6',
+                                borderTop: '8px solid #DCF8C6',
+                                transform: 'rotate(45deg)',
+                              } : {
+                                content: '""',
+                                position: 'absolute',
+                                left: '-8px',
+                                top: '8px',
+                                border: '8px solid transparent',
+                                borderRight: '8px solid #FFFFFF',
+                                borderTop: '8px solid #FFFFFF',
+                                transform: 'rotate(-45deg)',
+                              }
+                            }}
+                          >
+                            {/* Display message content from either text.body or content property */}
+                            {(apiMessage.text || apiMessage.content) && (
+                              <Typography variant="body1">
+                                {apiMessage.text?.body || apiMessage.content}
+                              </Typography>
+                            )}
+                            {apiMessage.image && (
+                              <Box>
+                                <img
+                                  src={apiMessage.image.url || ''}
+                                  alt="Image"
+                                  style={{ maxWidth: '100%', borderRadius: 8 }}
+                                />
+                                {apiMessage.image.caption && (
+                                  <Typography variant="caption">{apiMessage.image.caption}</Typography>
+                                )}
+                              </Box>
+                            )}
+                            {apiMessage.document && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: 'rgba(0,0,0,0.05)', p: 1, borderRadius: 1 }}>
+                                <IconButton size="small" component="a" href={apiMessage.document.url} target="_blank">
+                                  <FileIcon />
+                                </IconButton>
+                                <Typography variant="body2">{apiMessage.document.filename}</Typography>
+                              </Box>
+                            )}
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                display: 'block', 
+                                mt: 0.5, 
+                                textAlign: 'right',
+                                fontSize: '0.7rem',
+                                color: 'rgba(0,0,0,0.5)'
                               }}
                             >
-                              Message
-                            </Button>
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              ) : (
-                <Box sx={{ textAlign: 'center', p: 3 }}>
-                  <Typography color="text.secondary">No contacts found</Typography>
+                              {formatTimestamp(apiMessage.timestamp)}
+                              {apiMessage.status === 'read' && (
+                                <CheckCircleIcon fontSize="inherit" sx={{ ml: 0.5, color: '#34B7F1' }} />
+                              )}
+                              {apiMessage.status === 'delivered' && (
+                                <CheckIcon fontSize="inherit" sx={{ ml: 0.5, color: '#8C8C8C' }} />
+                              )}
+                            </Typography>
+                          </Paper>
+                        </Box>
+                      );
+                    })
+                  )}
+                  <div ref={messagesEndRef} />
                 </Box>
-              )}
-            </Paper>
-          </Grid>
-        </Grid>
-      </TabPanel>
-
-      <TabPanel value={activeTab} index={3}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Paper elevation={0} variant="outlined" sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 3 }}>Webhook Configuration</Typography>
-              
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Webhook URL
-                </Typography>
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  value={window.location.origin + '/api/webhook/whatsapp'}
-                  InputProps={{
-                    readOnly: true,
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton 
-                          size="small"
-                          onClick={() => {
-                            navigator.clipboard.writeText(window.location.origin + '/api/webhook/whatsapp');
-                            showAlert('Webhook URL copied to clipboard', 'success');
-                          }}
-                        >
-                          <IconButton size="small">
-                            <RefreshIcon fontSize="small" />
-                          </IconButton>
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-                <Typography variant="caption" color="text.secondary">
-                  This is the URL you need to register in the Meta Developer Portal
-                </Typography>
-              </Box>
-              
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Verify Token
-                </Typography>
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  placeholder="Enter your webhook verify token"
-                  sx={{ mb: 1 }}
-                />
-                <Typography variant="caption" color="text.secondary">
-                  This token should match the WHATSAPP_VERIFY_TOKEN in your environment variables
-                </Typography>
-              </Box>
-              
-              <Button
-                variant="contained"
-                onClick={handleWebhookSetup}
-                startIcon={loading ? <CircularProgress size={20} /> : undefined}
-                disabled={loading}
-              >
-                Update Webhook Subscription
-              </Button>
-            </Paper>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Paper elevation={0} variant="outlined" sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 3 }}>Test Webhook Connection</Typography>
-              
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Your WhatsApp Number
-                </Typography>
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  placeholder="Enter your WhatsApp number with country code"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  sx={{ mb: 1 }}
-                />
-                <Typography variant="caption" color="text.secondary">
-                  We'll send a test message to this number. Reply to test incoming messages.
-                </Typography>
-              </Box>
-              
-              <Button
-                variant="contained"
-                onClick={handleTestWebhook}
-                startIcon={loading ? <CircularProgress size={20} /> : undefined}
-                disabled={loading}
-                sx={{ mr: 2 }}
-              >
-                Send Test Message
-              </Button>
-              
-              <Button
+                
+                {/* Message Input */}
+                <Box sx={{ p: 2, borderTop: `1px solid ${theme.palette.divider}`, display: 'flex', bgcolor: '#FFFFFF' }}>
+                  <TextField
+                    fullWidth
+                    placeholder="Type a message"
+                    variant="outlined"
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    size="small"
+                    sx={{ 
+                      mr: 1,
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '20px',
+                        backgroundColor: '#f0f0f0',
+                        '&:hover': {
+                          backgroundColor: '#e8e8e8',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: '#ffffff',
+                        }
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    endIcon={<SendIcon />}
+                    onClick={handleSendMessage}
+                    disabled={!messageText.trim()}
+                    sx={{ 
+                      borderRadius: '20px',
+                      bgcolor: '#25D366',
+                      '&:hover': {
+                        bgcolor: '#128C7E',
+                      }
+                    }}
+                  >
+                    Send
+                  </Button>
+                </Box>
+              </Paper>
+            ) : (
+              <Paper
                 variant="outlined"
-                onClick={handleGetWebhookStatus}
-                startIcon={loading ? <CircularProgress size={20} /> : undefined}
-                disabled={loading}
+                sx={{
+                  height: '70vh',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  p: 3,
+                  borderRadius: 2,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                  bgcolor: 'rgba(37, 211, 102, 0.03)'
+                }}
               >
-                Check Webhook Status
-              </Button>
-              
-              <Box sx={{ mt: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Troubleshooting Steps:
+                <WhatsAppIcon sx={{ fontSize: 80, color: '#25D366', mb: 2 }} />
+                <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                  Select a contact to start messaging
                 </Typography>
-                <Typography variant="body2" component="ol" sx={{ pl: 2 }}>
-                  <li>Verify your webhook URL is publicly accessible</li>
-                  <li>Ensure the verify token matches your environment variable</li>
-                  <li>Check that you've subscribed to the 'messages' webhook field</li>
-                  <li>Confirm your access token has the 'whatsapp_business_messaging' permission</li>
-                  <li>Review server logs for incoming webhook requests</li>
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ mb: 3, maxWidth: '400px' }}>
+                  Choose a contact from the list or create a new one to start a conversation
                 </Typography>
-              </Box>
-            </Paper>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setNewContactDialogOpen(true)}
+                  sx={{ 
+                    borderRadius: '20px',
+                    bgcolor: '#25D366',
+                    '&:hover': {
+                      bgcolor: '#128C7E',
+                    }
+                  }}
+                >
+                  New Contact
+                </Button>
+              </Paper>
+            )}
           </Grid>
         </Grid>
-      </TabPanel>
+      </Paper>
 
-      <Snackbar 
-        open={alertOpen} 
-        autoHideDuration={6000} 
-        onClose={() => setAlertOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={() => setAlertOpen(false)} severity={alertSeverity}>
-          {alertMessage}
-        </Alert>
-      </Snackbar>
+      {/* New Contact Dialog */}
+      <Dialog open={newContactDialogOpen} onClose={() => setNewContactDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add New Contact</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <TextField
+              fullWidth
+              label="Name"
+              variant="outlined"
+              value={newContact.name}
+              onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+              margin="normal"
+            />
+            <TextField
+              fullWidth
+              label="Phone Number"
+              variant="outlined"
+              value={newContact.phoneNumber}
+              onChange={(e) => setNewContact({ ...newContact, phoneNumber: e.target.value })}
+              margin="normal"
+              helperText="Include country code (e.g., +1 for US)"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNewContactDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleCreateContact}
+            disabled={!newContact.name || !newContact.phoneNumber}
+            sx={{ 
+              bgcolor: '#25D366',
+              '&:hover': {
+                bgcolor: '#128C7E',
+              }
+            }}
+          >
+            Add Contact
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Template Message Dialog */}
+      <Dialog open={templateDialogOpen} onClose={() => setTemplateDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Send Template Message</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="template-select-label">Template</InputLabel>
+              <Select
+                labelId="template-select-label"
+                value={selectedTemplate}
+                label="Template"
+                onChange={(e) => setSelectedTemplate(e.target.value)}
+              >
+                {templates.length === 0 ? (
+                  <MenuItem disabled>No templates available</MenuItem>
+                ) : (
+                  templates.map((template) => (
+                    <MenuItem key={template.name} value={template.name}>
+                      {template.name}
+                    </MenuItem>
+                  ))
+                )}
+              </Select>
+              <FormHelperText>
+                Select a template to send to {selectedContact?.name}
+              </FormHelperText>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTemplateDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSendTemplate}
+            disabled={!selectedTemplate}
+            sx={{ 
+              bgcolor: '#25D366',
+              '&:hover': {
+                bgcolor: '#128C7E',
+              }
+            }}
+          >
+            Send Template
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Webhook Test Dialog */}
+      <Dialog open={webhookTestDialogOpen} onClose={() => setWebhookTestDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Test Webhook</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <Typography variant="body2" paragraph>
+              This will send a test message to verify that your webhook is properly configured.
+            </Typography>
+            <TextField
+              fullWidth
+              label="Phone Number"
+              variant="outlined"
+              value={testPhoneNumber}
+              onChange={(e) => setTestPhoneNumber(e.target.value)}
+              margin="normal"
+              helperText="Include country code (e.g., +1 for US)"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setWebhookTestDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleTestWebhook}
+            disabled={!testPhoneNumber}
+            sx={{ 
+              bgcolor: '#25D366',
+              '&:hover': {
+                bgcolor: '#128C7E',
+              }
+            }}
+          >
+            Send Test Message
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 } 

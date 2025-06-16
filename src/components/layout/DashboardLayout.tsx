@@ -25,6 +25,7 @@ import {
   InputBase,
   Button,
   Collapse,
+  CircularProgress,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -114,14 +115,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isClient, setIsClient] = useState(false);
   
   // Add refs for the drawers
   const mobileDrawerRef = useRef(null);
   const desktopDrawerRef = useRef(null);
 
+  // Set isClient to true once component mounts (client-side only)
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   // Expand the category of the current active path by default
   useEffect(() => {
-    if (pathname) {
+    if (pathname && isClient) {
       const currentCategory = menuCategories.find(category => 
         category.items.some(item => pathname.startsWith(item.path))
       );
@@ -129,7 +136,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setExpandedCategory(currentCategory.category);
       }
     }
-  }, [pathname]);
+  }, [pathname, isClient]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -164,6 +171,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setExpandedCategory(category);
     }
   };
+
+  // If we're server-side rendering, return a minimal layout
+  if (!isClient) {
+    return (
+      <Box sx={{ display: 'flex', height: '100vh', width: '100%', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   const drawer = (
     <Box sx={{ 

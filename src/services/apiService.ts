@@ -3,7 +3,7 @@ import Cookies from 'js-cookie';
 
 // Check if there's a BASE_URL constant at the top of the file and update it
 // If not, add one
-const BASE_URL = 'http://localhost:7505';
+const BASE_URL = 'https://api.quickbid.co.in/support';
 
 // Update the cookie name to match what the server sends
 const AUTH_COOKIE_NAME = 'auth_token';
