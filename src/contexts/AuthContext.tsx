@@ -1,14 +1,28 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
-import { login as apiLogin, logout as apiLogout, getProfile, UserProfile, LoginResponse } from '../services/authService';
+import { createContext, useState, useContext, useEffect, ReactNode, useTransition } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import authService from '../services/authService';
 
-// Update the cookie name to match what the server sends
-const USER_COOKIE_NAME = 'user';
+const USER_STORAGE_KEY = 'user';
+const TOKEN_STORAGE_KEY = 'auth_token';
 
-interface User {
+interface LoginApiResponse {
+  success: boolean;
+  data: {
+    token: string;
+    user: {
+      id: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      roles: string[];
+      permissions: string[];
+    };
+  };
+}
+
+export interface AppUser {
   id: string;
   email: string;
   firstName: string;
@@ -18,96 +32,164 @@ interface User {
 }
 
 interface AuthContextType {
-  user: User | null;
-  login: (email: string, password: string) => Promise<LoginResponse>;
-  logout: () => void;
+  user: AppUser | null;
   isLoading: boolean;
-  hasPermission: (permission: string) => boolean;
-  hasRole: (role: string) => boolean;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => void;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const router = useRouter();
+  const pathname = usePathname();
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    // Check for existing user data in cookies or localStorage
-    let userData = Cookies.get(USER_COOKIE_NAME);
-    
-    // If not found in cookies, try localStorage
-    if (typeof window !== 'undefined' && !userData) {
-      const localStorageUser = localStorage.getItem(USER_COOKIE_NAME);
-      if (localStorageUser) {
-        userData = localStorageUser;
-        // Sync to cookies
-        Cookies.set(USER_COOKIE_NAME, localStorageUser);
-      }
-    }
-    
-    if (userData) {
+    const checkAuth = async () => {
+      setIsLoading(true);
+
       try {
-        setUser(JSON.parse(userData));
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        Cookies.remove(USER_COOKIE_NAME);
         if (typeof window !== 'undefined') {
-          localStorage.removeItem(USER_COOKIE_NAME);
+          const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+          const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+
+          if (storedUser && storedToken) {
+            try {
+              const userData = JSON.parse(storedUser);
+              console.log(userData,"userData");
+              setUser(userData);
+              setIsAuthenticated(true);
+              authService.setAuthToken(storedToken);
+            } catch (e) {
+              console.error('Invalid user data in localStorage:', e);
+              clearAuthData();
+            }
+          }
         }
+
+        const currentUser = await authService.getCurrentUser();
+        setUser(currentUser as unknown as AppUser);
+        setIsAuthenticated(true);
+
+        // Redirect to dashboard if already logged in and on login page
+        if (pathname === '/login') {
+          router.replace('/dashboard');
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        clearAuthData();
+
+        // If not logged in and not already on login, redirect to login
+        if (pathname !== '/login') {
+          router.replace('/login');
+        }
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    checkAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const clearAuthData = () => {
+    setUser(null);
+    setIsAuthenticated(false);
+    authService.clearAuthToken();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(USER_STORAGE_KEY);
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+  };
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    setIsLoading(true);
+
     try {
-      setIsLoading(true);
-      const response = await apiLogin(email, password);
-      
-      if (response.success) {
-        setUser(response.data.user);
-        router.push('/dashboard');
-        return response;
-      } else {
+      const response = await fetch('https://api.quickbid.co.in/support/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data: LoginApiResponse = await response.json();
+
+      if (!data.success || !data.data) {
         throw new Error('Login failed');
       }
+
+      const token = data.data.token;
+      const userData = data.data.user;
+
+      authService.setAuthToken(token);
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+        localStorage.setItem(TOKEN_STORAGE_KEY, token);
+      }
+
+      setUser(userData);
+      setIsAuthenticated(true);
+
+      // Redirect to dashboard
+      router.replace('/dashboard');
+
+      return true;
     } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+      console.error('Login failed:', error);
+      return false;
     } finally {
       setIsLoading(false);
     }
   };
 
   const logout = () => {
-    apiLogout();
-    setUser(null);
-    router.push('/login');
+    clearAuthData();
+    router.replace('/login');
+    authService.logout().catch((err) => console.error('Logout API call failed:', err));
   };
 
-  const hasPermission = (permission: string): boolean => {
-    if (!user) return false;
-    return user.permissions.includes(permission);
-  };
-
-  const hasRole = (role: string): boolean => {
-    if (!user) return false;
-    return user.roles.includes(role);
+  const refreshUserData = async () => {
+    if (!isAuthenticated) return;
+    setIsLoading(true);
+    try {
+      const userData = await authService.getCurrentUser();
+      setUser(userData as unknown as AppUser);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+      }
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, hasPermission, hasRole }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        isAuthenticated,
+        login,
+        logout,
+        refreshUserData,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+};

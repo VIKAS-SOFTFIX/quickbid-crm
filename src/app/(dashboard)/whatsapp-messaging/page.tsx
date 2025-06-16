@@ -95,6 +95,7 @@ export default function WhatsAppMessagingPage() {
     isClient,
     fetchContacts,
     fetchTemplates,
+    fetchMessages, // Add this to your useWhatsApp hook
     sendTextMessage,
     sendTemplateMessage,
     createContact,
@@ -113,8 +114,10 @@ export default function WhatsAppMessagingPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [webhookTestDialogOpen, setWebhookTestDialogOpen] = useState(false);
   const [testPhoneNumber, setTestPhoneNumber] = useState('');
+  const [isPolling, setIsPolling] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Scroll to bottom of messages when messages change
   useEffect(() => {
@@ -122,6 +125,59 @@ export default function WhatsAppMessagingPage() {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  // Long polling effect for messages
+  useEffect(() => {
+    const startPolling = () => {
+      if (!selectedContact?.waId || isPolling) return;
+
+      setIsPolling(true);
+      
+      const pollMessages = async () => {
+        try {
+          if (selectedContact?.waId && fetchMessages) {
+            await fetchMessages(selectedContact.waId);
+          }
+        } catch (error) {
+          console.error('Error polling messages:', error);
+        }
+      };
+
+      // Initial fetch
+      pollMessages();
+
+      // Set up interval for long polling every 4 seconds
+      pollingIntervalRef.current = setInterval(pollMessages, 4000);
+    };
+
+    const stopPolling = () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      setIsPolling(false);
+    };
+
+    if (selectedContact?.waId) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
+
+    // Cleanup on unmount or contact change
+    return () => {
+      stopPolling();
+    };
+  }, [selectedContact?.waId, fetchMessages]);
+
+  // Cleanup polling on component unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Handle tab change
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -139,13 +195,11 @@ export default function WhatsAppMessagingPage() {
       });
       setMessageText('');
       
-      // Refresh messages after sending
-      if (selectedContact.waId) {
-        // In a real app, you'd want to add the message to the list immediately
-        // and then refresh after a delay to get the server's response
-        setTimeout(() => {
-          fetchContacts();
-        }, 1000);
+      // Immediately fetch messages after sending to show the sent message
+      if (selectedContact.waId && fetchMessages) {
+        setTimeout(async () => {
+          await fetchMessages(selectedContact.waId?.toString() || '');
+        }, 500);
       }
     } catch (err) {
       console.error('Error sending message:', err);
@@ -165,13 +219,11 @@ export default function WhatsAppMessagingPage() {
       setTemplateDialogOpen(false);
       setSelectedTemplate('');
       
-      // Refresh messages after sending
-      if (selectedContact.waId) {
-        // In a real app, you'd want to add the message to the list immediately
-        // and then refresh after a delay to get the server's response
-        setTimeout(() => {
-          fetchContacts();
-        }, 1000);
+      // Immediately fetch messages after sending template
+      if (selectedContact.waId && fetchMessages) {
+        setTimeout(async () => {
+          await fetchMessages(selectedContact.waId || '');
+        }, 500);
       }
     } catch (err) {
       console.error('Error sending template message:', err);
@@ -254,6 +306,14 @@ export default function WhatsAppMessagingPage() {
           <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
             WhatsApp Messaging
           </Typography>
+          {isPolling && (
+            <Box sx={{ ml: 2, display: 'flex', alignItems: 'center' }}>
+              <CircularProgress size={16} sx={{ mr: 1 }} />
+              <Typography variant="caption" color="textSecondary">
+                Live
+              </Typography>
+            </Box>
+          )}
         </Box>
         
         <Typography color="textSecondary" sx={{ mb: 3 }}>
@@ -275,6 +335,9 @@ export default function WhatsAppMessagingPage() {
             onClick={() => {
               fetchContacts();
               fetchTemplates();
+              if (selectedContact?.waId && fetchMessages) {
+                fetchMessages(selectedContact.waId);
+              }
             }}
             sx={{ mr: 1 }}
           >
@@ -454,6 +517,15 @@ export default function WhatsAppMessagingPage() {
                       </Typography>
                       <Typography variant="body2" color="textSecondary">
                         {selectedContact.phoneNumber}
+                        {isPolling && (
+                          <Typography 
+                            component="span" 
+                            variant="caption" 
+                            sx={{ ml: 1, color: '#25D366', fontWeight: 'bold' }}
+                          >
+                            • Live
+                          </Typography>
+                        )}
                       </Typography>
                     </Box>
                     <Box sx={{ ml: 'auto' }}>
@@ -676,6 +748,7 @@ export default function WhatsAppMessagingPage() {
           </Grid>
         </Grid>
       </Paper>
+
 
       {/* New Contact Dialog */}
       <Dialog open={newContactDialogOpen} onClose={() => setNewContactDialogOpen(false)} maxWidth="sm" fullWidth>

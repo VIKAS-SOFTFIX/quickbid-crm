@@ -44,6 +44,7 @@ import {
   Grow,
   CardActions,
 } from '@mui/material';
+import type { PaletteColor } from '@mui/material/styles';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import {
@@ -132,7 +133,7 @@ export default function EnterpriseRequestDetail({
   onUpdateStatus,
   statusHistory = [],
   isUpdating = false
-}: EnterpriseRequestDetailProps) {
+}: any) {
   const theme = useTheme();
   const [mounted, setMounted] = useState(false);
   const [tabValue, setTabValue] = useState(0);
@@ -363,8 +364,8 @@ export default function EnterpriseRequestDetail({
                 </Box>
                 <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2, ml: 6 }}>
                   <Chip 
-                    label={STATUS_DISPLAY[request.status || 'pending']} 
-                    icon={STATUS_ICONS[request.status || 'pending']}
+                    label={STATUS_DISPLAY[(request.status || 'pending') as keyof typeof STATUS_DISPLAY]} 
+                    icon={STATUS_ICONS[(request.status || 'pending') as keyof typeof STATUS_ICONS]}
                     sx={{ 
                       backgroundColor: 'rgba(255, 255, 255, 0.2)',
                       color: 'white',
@@ -767,68 +768,76 @@ export default function EnterpriseRequestDetail({
                 </Typography>
                 
                 <Stepper orientation="vertical" activeStep={-1}>
-                  {statusHistory.map((item, index) => (
-                    <Step key={index} expanded>
-                      <StepLabel 
-                        StepIconComponent={() => (
-                          <Avatar
-                            sx={{
-                              width: 36,
-                              height: 36,
-                              bgcolor: alpha(theme.palette[STATUS_COLORS[item.status]].main, 0.1),
-                              color: theme.palette[STATUS_COLORS[item.status]].main,
-                            }}
+                  {statusHistory.map(
+                    (
+                      item: StatusHistoryItem & { status: keyof typeof STATUS_COLORS },
+                      index: number
+                    ) => {
+                      const statusColor = STATUS_COLORS[item.status];
+                      return (
+                        <Step key={index} expanded>
+                          <StepLabel 
+                            StepIconComponent={() => (
+                              <Avatar
+                                sx={{
+                                  width: 36,
+                                  height: 36,
+                                  bgcolor: alpha(theme.palette[statusColor].main, 0.1),
+                                  color: theme.palette[statusColor].main,
+                                }}
+                              >
+                                {STATUS_ICONS[item.status]}
+                              </Avatar>
+                            )}
                           >
-                            {STATUS_ICONS[item.status]}
-                          </Avatar>
-                        )}
-                      >
-                        <Typography variant="subtitle2" fontWeight={600}>
-                          {STATUS_DISPLAY[item.status]}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {formatDate(item.timestamp)}
-                        </Typography>
-                      </StepLabel>
-                      <StepContent>
-                        <Box 
-                          sx={{ 
-                            ml: 0.5, 
-                            p: 2, 
-                            bgcolor: alpha(theme.palette.background.default, 0.5),
-                            borderRadius: 2,
-                            border: `1px dashed ${alpha(theme.palette.divider, 0.3)}`
-                          }}
-                        >
-                          <Typography variant="body2" sx={{ mb: 1 }}>
-                            {item.notes}
-                          </Typography>
-                          
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
-                            {item.discount !== undefined && (
-                              <Chip 
-                                icon={<OfferIcon />}
-                                label={`Discount: ${item.discount}%`}
-                                color="primary"
-                                variant="outlined"
-                                size="small"
-                              />
-                            )}
-                            
-                            {item.followUpDate && (
-                              <Chip 
-                                icon={<ReminderIcon />}
-                                label={`Follow-up: ${formatDate(item.followUpDate)}`}
-                                color="secondary"
-                                variant="outlined"
-                                size="small"
-                              />
-                            )}
-                          </Box>
-                        </Box>
-                      </StepContent>
-                    </Step>
-                  ))}
+                            <Typography variant="subtitle2" fontWeight={600}>
+                              {STATUS_DISPLAY[item.status]}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {formatDate(item.timestamp)}
+                            </Typography>
+                          </StepLabel>
+                          <StepContent>
+                            <Box 
+                              sx={{ 
+                                ml: 0.5, 
+                                p: 2, 
+                                bgcolor: alpha(theme.palette.background.default, 0.5),
+                                borderRadius: 2,
+                                border: `1px dashed ${alpha(theme.palette.divider, 0.3)}`
+                              }}
+                            >
+                              <Typography variant="body2" sx={{ mb: 1 }}>
+                                {item.notes}
+                              </Typography>
+                              
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
+                                {item.discount !== undefined && (
+                                  <Chip 
+                                    icon={<OfferIcon />}
+                                    label={`Discount: ${item.discount}%`}
+                                    color="primary"
+                                    variant="outlined"
+                                    size="small"
+                                  />
+                                )}
+                                
+                                {item.followUpDate && (
+                                  <Chip 
+                                    icon={<ReminderIcon />}
+                                    label={`Follow-up: ${formatDate(item.followUpDate)}`}
+                                    color="secondary"
+                                    variant="outlined"
+                                    size="small"
+                                  />
+                                )}
+                              </Box>
+                            </Box>
+                          </StepContent>
+                        </Step>
+                      );
+                    }
+                  )}
                 </Stepper>
                 
                 {statusHistory.length === 0 && (
@@ -1081,16 +1090,60 @@ export default function EnterpriseRequestDetail({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Avatar
               sx={{
-                bgcolor: alpha(theme.palette[STATUS_COLORS[newStatus]].main, 0.1),
-                color: theme.palette[STATUS_COLORS[newStatus]].main,
+                bgcolor: alpha(
+                  typeof theme.palette[
+                    STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                  ] === 'object' && theme.palette[
+                    STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                  ] && typeof theme.palette[
+                    STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                  ] === 'object' && theme.palette[
+                    STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                  ] !== null && typeof theme.palette[
+                    STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                  ] === 'object' && theme.palette[
+                    STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                  ] && typeof theme.palette[
+                    STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                  ] === 'object' && theme.palette[
+                    STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                  ] !== null && Object.prototype.hasOwnProperty.call(
+                    theme.palette[
+                      STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                    ], 'main'
+                  )
+                    ? (theme.palette[
+                        STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                      ] as PaletteColor).main
+                    : theme.palette.primary.main,
+                  0.1
+                ),
+                color: 
+                  typeof theme.palette[
+                    STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                  ] === 'object' && theme.palette[
+                    STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                  ] !== null && typeof theme.palette[
+                    STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                  ] === 'object' && theme.palette[
+                    STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                  ] !== null && Object.prototype.hasOwnProperty.call(
+                    theme.palette[
+                      STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                    ], 'main'
+                  )
+                    ? (theme.palette[
+                        STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette
+                      ] as PaletteColor).main
+                    : theme.palette.primary.main,
                 width: 40,
                 height: 40,
               }}
             >
-              {STATUS_ICONS[newStatus]}
+              {STATUS_ICONS[newStatus as keyof typeof STATUS_ICONS] ?? <UpdateIcon />}
             </Avatar>
             <Typography variant="h6">
-              Update Status to {STATUS_DISPLAY[newStatus]}
+              Update Status to {STATUS_DISPLAY[newStatus as keyof typeof STATUS_DISPLAY] ?? 'Unknown'}
             </Typography>
           </Box>
         </DialogTitle>
@@ -1174,11 +1227,85 @@ export default function EnterpriseRequestDetail({
               mt: 3, 
               p: 2, 
               borderRadius: 2, 
-              bgcolor: alpha(theme.palette[STATUS_COLORS[newStatus]].main, 0.05),
-              border: `1px dashed ${alpha(theme.palette[STATUS_COLORS[newStatus]].main, 0.3)}`
+              bgcolor: alpha(
+                (typeof theme.palette[
+                  (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                ] === 'object' &&
+                  theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                  ] !== null &&
+                  typeof theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                  ] === 'object' &&
+                  theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                  ] !== null &&
+                  typeof theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                  ] === 'object' &&
+                  theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                  ] !== null &&
+                  'main' in (theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                  ] as object)
+                )
+                  ? (theme.palette[
+                      (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                    ] as PaletteColor).main
+                  : theme.palette.primary.main,
+                0.05
+              ),
+              border: `1px dashed ${alpha(
+                (typeof theme.palette[
+                  (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                ] === 'object' &&
+                  theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                  ] !== null &&
+                  typeof theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                  ] === 'object' &&
+                  theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                  ] !== null &&
+                  typeof theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                  ] === 'object' &&
+                  theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                  ] !== null &&
+                  'main' in (theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                  ] as object)
+                )
+                  ? (theme.palette[
+                      (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                    ] as PaletteColor).main
+                  : theme.palette.primary.main,
+                0.3
+              )}`
             }}
           >
-            <Typography variant="subtitle2" fontWeight={600} color={theme.palette[STATUS_COLORS[newStatus]].main}>
+            <Typography
+              variant="subtitle2"
+              fontWeight={600}
+              color={
+                typeof theme.palette[
+                  (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                ] === 'object' &&
+                theme.palette[
+                  (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                ] !== null &&
+                'main' in (theme.palette[
+                  (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                ] as object)
+                  ? (theme.palette[
+                      (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] as keyof typeof theme.palette) || 'primary'
+                    ] as PaletteColor).main
+                  : theme.palette.primary.main
+              }
+            >
               {newStatus === 'pending' && 'Request will be marked as new/pending'}
               {newStatus === 'offer_sent' && 'An offer will be recorded as sent to the client'}
               {newStatus === 'follow_up' && 'A follow-up reminder will be set for the selected date'}
@@ -1193,7 +1320,7 @@ export default function EnterpriseRequestDetail({
           <Button 
             onClick={handleCloseStatusDialog}
             variant="outlined"
-            color={STATUS_COLORS[newStatus] as any}
+            color={STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] ?? 'primary'}
           >
             Cancel
           </Button>
@@ -1203,15 +1330,59 @@ export default function EnterpriseRequestDetail({
             startIcon={<SaveIcon />}
             disabled={isUpdating}
             sx={{
-              bgcolor: theme.palette[STATUS_COLORS[newStatus]].main,
+              bgcolor: (() => {
+                const color = theme.palette[
+                  (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] || 'primary') as keyof typeof theme.palette
+                ];
+                return typeof color === 'object' && color !== null && 'main' in color
+                  ? (color as PaletteColor).main
+                  : theme.palette.primary.main;
+              })(),
               color: 'white',
-              boxShadow: `0 4px 12px ${alpha(theme.palette[STATUS_COLORS[newStatus]].main, 0.3)}`,
+              boxShadow: `0 4px 12px ${alpha(
+                (() => {
+                  const color = theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] || 'primary') as keyof typeof theme.palette
+                  ];
+                  return typeof color === 'object' && color !== null && 'main' in color
+                    ? (color as PaletteColor).main
+                    : theme.palette.primary.main;
+                })(),
+                0.3
+              )}`,
               '&:hover': {
-                bgcolor: theme.palette[STATUS_COLORS[newStatus]].dark,
-                boxShadow: `0 6px 16px ${alpha(theme.palette[STATUS_COLORS[newStatus]].main, 0.4)}`,
+                bgcolor: (() => {
+                  const color = theme.palette[
+                    (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] || 'primary') as keyof typeof theme.palette
+                  ];
+                  return typeof color === 'object' && color !== null && 'dark' in color
+                    ? (color as PaletteColor).dark
+                    : theme.palette.primary.dark;
+                })(),
+                boxShadow: `0 6px 16px ${alpha(
+                  (() => {
+                    const color = theme.palette[
+                      (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] || 'primary') as keyof typeof theme.palette
+                    ];
+                    return typeof color === 'object' && color !== null && 'main' in color
+                      ? (color as PaletteColor).main
+                      : theme.palette.primary.main;
+                  })(),
+                  0.4
+                )}`,
               },
               '&:disabled': {
-                bgcolor: alpha(theme.palette[STATUS_COLORS[newStatus]].main, 0.6),
+                bgcolor: alpha(
+                  (() => {
+                    const color = theme.palette[
+                      (STATUS_COLORS[newStatus as keyof typeof STATUS_COLORS] || 'primary') as keyof typeof theme.palette
+                    ];
+                    return typeof color === 'object' && color !== null && 'main' in color
+                      ? (color as PaletteColor).main
+                      : theme.palette.primary.main;
+                  })(),
+                  0.6
+                ),
                 color: 'white',
               }
             }}

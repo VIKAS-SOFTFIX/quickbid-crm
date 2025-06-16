@@ -526,7 +526,9 @@ export default function EmailMarketingPage() {
     if (template.id === 'launch-announcement') {
       templateContent = updateLaunchCountdown(templateContent);
     }
-    
+    if (template.id === 'Free-trial-announcement') {
+      templateContent = updateLaunchCountdown(templateContent);
+    }
     if (editor) {
       editor.commands.setContent(templateContent);
     }

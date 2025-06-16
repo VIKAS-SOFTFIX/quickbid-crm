@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { setAuthToken } from './api';
+
 
 // Custom hook for managing the auth token
 export function useAuthToken() {
@@ -20,7 +20,7 @@ export function useAuthToken() {
   // Function to update the token
   const updateToken = (newToken: string, rememberMe: boolean = true) => {
     setToken(newToken);
-    setAuthToken(newToken);
+    // setAuthToken(newToken);
     
     // Store in the appropriate storage based on "remember me" setting
     if (typeof window !== 'undefined') {

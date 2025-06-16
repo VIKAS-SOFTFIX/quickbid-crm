@@ -144,7 +144,7 @@ const useStatusColor = () => {
   };
 };
 
-export default function LeadDetailPage({ params }: { params: { id: string } }) {
+export default function LeadDetailPage({ params }:any) {
   // Don't use React.use() as it's causing TypeScript errors
   // Just access params directly, but update the dependency in the useEffect
   const leadId = params.id;

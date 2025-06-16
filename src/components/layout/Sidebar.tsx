@@ -108,7 +108,7 @@ export default function Sidebar() {
     'Communications': false,
     'Administration': false
   });
-  const { user, hasRole } = useAuth();
+  const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsed, setCollapsed] = useState(false);

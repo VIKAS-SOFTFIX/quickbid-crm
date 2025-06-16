@@ -120,12 +120,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Add refs for the drawers
   const mobileDrawerRef = useRef(null);
   const desktopDrawerRef = useRef(null);
-
   // Set isClient to true once component mounts (client-side only)
   useEffect(() => {
     setIsClient(true);
   }, []);
-
+ console.log(user,"user");
   // Expand the category of the current active path by default
   useEffect(() => {
     if (pathname && isClient) {
@@ -296,6 +295,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               border: '2px solid rgba(255, 255, 255, 0.2)',
             }}
           >
+            
             {user?.firstName?.[0]}
           </Avatar>
           <Box sx={{ overflow: 'hidden' }}>

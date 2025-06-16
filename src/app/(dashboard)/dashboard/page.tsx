@@ -568,7 +568,7 @@ export default function DashboardPage() {
               letterSpacing: '-0.01em',
             }}
           >
-            Welcome back, {user?.name?.split(' ')[0]}!
+            Welcome back, {user?.firstName}!
           </Typography>
           <Typography 
             variant="body1"

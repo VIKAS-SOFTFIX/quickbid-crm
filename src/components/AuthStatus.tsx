@@ -56,14 +56,15 @@ export default function AuthStatus() {
         setIsTestingApi(false);
         return;
       }
-      
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('auth_token')}`
+      }
+      console.log(headers,"headers");
       // Make a request to a protected endpoint
       const response = await fetch('https://api.quickbid.co.in/support/api/users', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          // No Authorization header, using cookies only
-        },
+        headers,
         // Include credentials to send cookies
         credentials: 'include'
       });

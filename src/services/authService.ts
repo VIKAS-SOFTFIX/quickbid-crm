@@ -1,9 +1,41 @@
+import apiClient from './apiClient';
 import { post, authGet } from './apiService';
 import Cookies from 'js-cookie';
 
 // Update the cookie name to match what the server sends
 const AUTH_COOKIE_NAME = 'auth_token';
 const USER_COOKIE_NAME = 'user';
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface LoginResponse {
   success: boolean;
@@ -33,6 +65,70 @@ export interface ProfileResponse {
   success: boolean;
   data: UserProfile;
 }
+
+class AuthService {
+  private baseUrl = '/auth';
+
+  // Login user
+  async login(credentials: LoginRequest): Promise<AuthResponse> {
+    return await apiClient.post<AuthResponse>(`${this.baseUrl}/login`, credentials);
+  }
+
+  // Register new user
+  async register(userData: RegisterRequest): Promise<AuthResponse> {
+    return await apiClient.post<AuthResponse>(`${this.baseUrl}/register`, userData);
+  }
+
+  // Get current user profile
+  async getCurrentUser(): Promise<User> {
+    return await apiClient.get<User>(`${this.baseUrl}/me`);
+  }
+
+  // Logout user (invalidate token on server)
+  async logout(): Promise<{ success: boolean }> {
+    const response = await apiClient.post<{ success: boolean }>(`${this.baseUrl}/logout`);
+    // Clear token from client
+    apiClient.clearToken();
+    return response;
+  }
+
+  // Password reset request
+  async requestPasswordReset(email: string): Promise<{ success: boolean }> {
+    return await apiClient.post<{ success: boolean }>(`${this.baseUrl}/password/reset-request`, { email });
+  }
+
+  // Reset password with token
+  async resetPassword(token: string, password: string, confirmPassword: string): Promise<{ success: boolean }> {
+    return await apiClient.post<{ success: boolean }>(`${this.baseUrl}/password/reset`, {
+      token,
+      password,
+      confirmPassword
+    });
+  }
+
+  // Update user profile
+  async updateProfile(userData: Partial<User>): Promise<User> {
+    return await apiClient.put<User>(`${this.baseUrl}/profile`, userData);
+  }
+
+  // Set auth token in API client
+  setAuthToken(token: string): void {
+    apiClient.setToken(token);
+    // You might want to store the token in a cookie or localStorage here
+  }
+
+  // Clear auth token in API client
+  clearAuthToken(): void {
+    apiClient.clearToken();
+    // You might want to clear the token from a cookie or localStorage here
+  }
+}
+
+// Create a singleton instance
+export const authService = new AuthService();
+
+// Export default instance
+export default authService;
 
 // Login function - directly connect to the external API
 export const login = async (email: string, password: string): Promise<LoginResponse> => {
@@ -111,26 +207,6 @@ export const hasRole = (role: string): boolean => {
     console.error('Error checking role:', error);
     return false;
   }
-};
-
-// Logout function
-export const logout = (): void => {
-  // Clear from cookies
-  Cookies.remove(AUTH_COOKIE_NAME);
-  Cookies.remove(USER_COOKIE_NAME);
-  
-  // Clear from localStorage
-  localStorage.removeItem(AUTH_COOKIE_NAME);
-  localStorage.removeItem(USER_COOKIE_NAME);
-  
-  // The server-side cookie needs to be cleared by the server
-  // We'll make a logout request to the server
-  fetch('/api/auth/logout', { 
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  }).catch(err => console.error('Error during logout:', err));
 };
 
 // Function to manually set token from provided JSON data

@@ -1,106 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  sendEmail,
-  getSentEmails,
-  getEmailStats,
-  getEmailById,
-  EmailFilters,
-  SentEmail,
-  EmailStats,
-  SendEmailRequest,
-  EmailRecipient
-} from '@/services/emailMarketingService';
+import emailMarketingService, { SendEmailRequest, SentEmail } from '@/services/emailMarketingService';
 
-interface UseEmailMarketingProps {
-  initialFilters?: EmailFilters;
-}
-
-export const useEmailMarketing = (props?: UseEmailMarketingProps) => {
-  const [isClient, setIsClient] = useState(false);
-  const [loading, setLoading] = useState(false);
+export const useEmailMarketing = () => {
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
-  // Email list state
-  const [emails, setEmails] = useState<SentEmail[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [filters, setFilters] = useState<EmailFilters>(props?.initialFilters || {
-    page: 1,
-    limit: 10
-  });
-  
-  // Stats state
-  const [stats, setStats] = useState<EmailStats | null>(null);
-  
-  // Selected email state
-  const [selectedEmail, setSelectedEmail] = useState<SentEmail | null>(null);
-  
-  // Set isClient to true once component mounts (client-side only)
+  const [sentEmails, setSentEmails] = useState<SentEmail[]>([]);
+  const [isClient, setIsClient] = useState<boolean>(false);
+
+  // Check if we're on the client side
   useEffect(() => {
-    setIsClient(true);
+    setIsClient(typeof window !== 'undefined');
   }, []);
 
-  // Fetch sent emails
-  const fetchEmails = useCallback(async (newFilters?: EmailFilters) => {
-    if (!isClient) return;
-    
-    const currentFilters = newFilters || filters;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const result = await getSentEmails(currentFilters);
-      setEmails(result.data);
-      setTotalCount(result.pagination.total);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch sent emails');
-      console.error('Error fetching emails:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, isClient]);
-
-  // Fetch email statistics
-  const fetchStats = useCallback(async () => {
-    if (!isClient) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const result = await getEmailStats();
-      setStats(result);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch email statistics');
-      console.error('Error fetching email statistics:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [isClient]);
-
-  // Fetch email by ID
-  const fetchEmailById = useCallback(async (emailId: string) => {
-    if (!isClient) return null;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const email = await getEmailById(emailId);
-      setSelectedEmail(email);
-      return email;
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch email details');
-      console.error('Error fetching email details:', err);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [isClient]);
-
-  // Send email
-  const sendMarketingEmail = useCallback(async (emailData: SendEmailRequest) => {
+  // Send marketing email
+  const sendMarketingEmail = useCallback(async (data: SendEmailRequest): Promise<boolean> => {
     if (!isClient) return false;
     
     setLoading(true);
@@ -108,69 +22,82 @@ export const useEmailMarketing = (props?: UseEmailMarketingProps) => {
     setSuccess(null);
     
     try {
-      const result = await sendEmail(emailData);
-      setSuccess(result.message || 'Email sent successfully');
+      const response = await emailMarketingService.sendEmail(data);
+      
+      setSuccess(`Email sent successfully to ${data.recipients.to.length} recipients`);
       return true;
     } catch (err: any) {
-      setError(err.message || 'Failed to send email');
-      console.error('Error sending email:', err);
+      // Handle specific error formats from API or general errors
+      let errorMessage = 'Failed to send email. Please try again.';
+      
+      if (err.errors && Array.isArray(err.errors)) {
+        errorMessage = err.errors.map((e: any) => e.msg).join(', ');
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       return false;
     } finally {
       setLoading(false);
     }
   }, [isClient]);
 
-  // Update filters and fetch emails
-  const updateFilters = useCallback((newFilters: Partial<EmailFilters>) => {
-    const updatedFilters = { ...filters, ...newFilters };
+  // Send test email
+  const sendTestEmail = useCallback(async (to: string, subject: string, html: string): Promise<boolean> => {
+    if (!isClient) return false;
     
-    // Reset to page 1 if filters other than pagination change
-    if (Object.keys(newFilters).some(key => key !== 'page' && key !== 'limit')) {
-      updatedFilters.page = 1;
-    }
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
     
-    setFilters(updatedFilters);
-    fetchEmails(updatedFilters);
-  }, [filters, fetchEmails]);
-
-  // Reset filters
-  const resetFilters = useCallback(() => {
-    const resetFilters = {
-      page: 1,
-      limit: filters.limit || 10
-    };
-    setFilters(resetFilters);
-    fetchEmails(resetFilters);
-  }, [filters.limit, fetchEmails]);
-
-  // Initial data fetch
-  useEffect(() => {
-    if (isClient) {
-      fetchEmails();
+    try {
+      await emailMarketingService.sendTestEmail(to, subject, html);
+      
+      setSuccess(`Test email sent successfully to ${to}`);
+      return true;
+    } catch (err: any) {
+      setError(err.message || 'Failed to send test email');
+      return false;
+    } finally {
+      setLoading(false);
     }
-  }, [isClient, fetchEmails]);
+  }, [isClient]);
+
+  // Get sent emails
+  const fetchSentEmails = useCallback(async (page: number = 1, limit: number = 10) => {
+    if (!isClient) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const emails = await emailMarketingService.getSentEmails(page, limit);
+      setSentEmails(emails);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch sent emails');
+    } finally {
+      setLoading(false);
+    }
+  }, [isClient]);
+
+  // Clear error and success messages
+  const clearMessages = useCallback(() => {
+    setError(null);
+    setSuccess(null);
+  }, []);
 
   return {
-    // State
     loading,
     error,
     success,
-    emails,
-    totalCount,
-    filters,
-    stats,
-    selectedEmail,
-    isClient,
-    
-    // Actions
-    fetchEmails,
-    fetchStats,
-    fetchEmailById,
+    sentEmails,
     sendMarketingEmail,
-    updateFilters,
-    resetFilters,
-    setSelectedEmail,
-    setError,
-    setSuccess,
+    sendTestEmail,
+    fetchSentEmails,
+    clearMessages,
+    isClient
   };
-}; 
+};
+
+export default useEmailMarketing; 

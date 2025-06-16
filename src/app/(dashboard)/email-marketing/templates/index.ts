@@ -415,5 +415,192 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
         </p>
       </div>
     </div>`
+  },
+  {
+    id: 'Free-trial-announcement',
+    name: 'Free Trial Announcement',
+    subject: 'Free Trial Announcement',
+    content: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; color: #333333;">
+
+<!-- Header with logo -->
+
+<div style="background-color: #002147; padding: 25px; text-align: center; border-top-left-radius: 8px; border-top-right-radius: 8px;">
+
+<div style="background-color: white; display: inline-block; padding: 15px; border-radius: 8px;">
+
+<img src="https://quickbid.co.in/Assets/Images/logo.png" alt="QuickBid Logo" style="max-width: 180px; height: auto;">
+
+</div>
+
+</div>
+
+
+<!-- Main header -->
+
+<div style="background-color: #002147; padding: 20px; text-align: center;">
+
+<h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">Stop Overpaying for Tender Information</h1>
+
+<div style="width: 100px; height: 4px; background-color: #feac0d; margin: 20px auto;"></div>
+
+</div>
+
+
+<!-- Main content -->
+
+<div style="padding: 40px 30px; background-color: #ffffff;">
+
+<p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px; font-weight: 600;">Dear Sir/Madam,</p>
+
+
+<p style="font-size: 18px; line-height: 1.6; margin-bottom: 30px; font-weight: 600; color: #002147;">
+
+Stop overpaying for tender information.<br>
+
+QuickBid gives you 2 powerful tools.
+
+</p>
+
+
+<div style="width: 60px; height: 2px; background-color: #feac0d; margin: 30px 0;"></div>
+
+
+<!-- Feature 1 -->
+
+<div style="margin-bottom: 30px;">
+
+<div style="display: flex; align-items: flex-start; margin-bottom: 15px;">
+
+<span style="color: #feac0d; font-size: 20px; font-weight: bold; margin-right: 10px;">✅</span>
+
+<div>
+
+<h3 style="color: #002147; font-size: 18px; font-weight: 600; margin: 0 0 10px 0;">100% FREE Tender Information Service</h3>
+
+<p style="font-size: 16px; line-height: 1.6; margin: 0; color: #555;">
+
+Get daily government tender notifications with no hidden fees — forever*.
+
+</p>
+
+</div>
+
+</div>
+
+</div>
+
+
+<!-- Feature 2 -->
+
+<div style="margin-bottom: 30px;">
+
+<div style="display: flex; align-items: flex-start; margin-bottom: 15px;">
+
+<span style="color: #feac0d; font-size: 20px; font-weight: bold; margin-right: 10px;">🤖</span>
+
+<div>
+
+<h3 style="color: #002147; font-size: 18px; font-weight: 600; margin: 0 0 10px 0;">AI-Powered Bid Generator</h3>
+
+<p style="font-size: 16px; line-height: 1.6; margin: 0; color: #555;">
+
+Auto-create tender bid documents in just 30 seconds.<br>
+
+<strong style="color: #002147;">Free trial for 14 days</strong> — no credit card needed.
+
+</p>
+
+</div>
+
+</div>
+
+</div>
+
+
+<div style="width: 60px; height: 2px; background-color: #feac0d; margin: 30px 0;"></div>
+
+
+<!-- Key benefit -->
+
+<div style="background-color: #f7f9fc; border-left: 4px solid #002147; padding: 20px; margin: 30px 0; text-align: center;">
+
+<p style="font-size: 16px; line-height: 1.6; margin: 0; color: #002147; font-weight: 600;">
+
+After 14 days, tender alerts stay free.<br>
+
+Upgrade only if you love the AI.
+
+</p>
+
+</div>
+
+
+<div style="width: 60px; height: 2px; background-color: #feac0d; margin: 30px 0;"></div>
+
+
+<!-- Call to action -->
+
+<div style="text-align: center; margin: 40px 0;">
+
+<p style="font-size: 18px; line-height: 1.6; margin-bottom: 20px; font-weight: 600; color: #002147;">
+
+🎯 Start Smart. Bid Smarter.
+
+</p>
+
+<p style="margin-bottom: 0;">
+
+<a href="https://quickbid.co.in/register" style="background-color: #feac0d; color: #002147; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; text-transform: uppercase;">
+
+👉 Create Your Free Account Now
+
+</a>
+
+</p>
+
+</div>
+
+</div>
+
+
+<!-- Contact section -->
+
+<div style="padding: 30px; background-color: white; text-align: center; border-bottom: 4px solid #feac0d;">
+
+<p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+
+Happy Bidding<br>
+
+<strong style="color: #002147;">Team QuickBid</strong><br>
+
+<em style="color: #feac0d; font-weight: 600;">India's Smartest Tender Tech Platform</em>
+
+</p>
+
+
+<p style="font-size: 14px; color: #666; margin-bottom: 20px;">
+
+Questions? Contact us at <a href="mailto:support@quickbid.co.in" style="color: #002147; font-weight: bold; text-decoration: none; border-bottom: 2px solid #feac0d; padding-bottom: 2px;">support@quickbid.co.in</a>
+
+</p>
+
+</div>
+
+
+<!-- Footer -->
+
+<div style="padding: 20px; background-color: #002147; color: #ffffff; text-align: center; font-size: 12px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
+
+<p style="margin-bottom: 10px;">© 2024 QuickBid. All rights reserved.</p>
+
+<p style="margin-bottom: 0;">
+
+If you prefer not to receive emails like this, you can <a href="#" style="color: #feac0d; text-decoration: none;">unsubscribe</a>.
+
+</p>
+
+</div>
+
+</div>`
   }
 ]; 

@@ -28,7 +28,6 @@ const createAxiosInstance = (includeAuth: boolean = false) => {
   headers: {
     'Content-Type': 'application/json',
   },
-    withCredentials: includeAuth, // Include cookies only for authenticated requests
   });
   
   if (includeAuth) {

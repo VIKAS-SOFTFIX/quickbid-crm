@@ -12,7 +12,7 @@ const ensureAuthCookie = (): void => {
     // If token exists in localStorage but not in cookies, set it in cookies
     const localStorageToken = localStorage.getItem(AUTH_COOKIE_NAME);
     const cookieToken = Cookies.get(AUTH_COOKIE_NAME);
-    
+
     if (localStorageToken && !cookieToken) {
       Cookies.set(AUTH_COOKIE_NAME, localStorageToken);
     }
@@ -24,8 +24,10 @@ const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
-  },
-  withCredentials: true, // Include cookies for requests
+
+    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+  }
+
 });
 
 // Add request interceptor to ensure auth cookie is set
@@ -64,9 +66,8 @@ apiClient.interceptors.response.use(
 // User API functions
 export const fetchUsers = async () => {
   try {
-    ensureAuthCookie(); // Make sure auth cookie is set before request
     const response = await apiClient.get('/users');
-    console.log(response.data,"response");
+
     return response.data;
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -279,11 +280,11 @@ export const deleteLead = async (leadId: string) => {
 export const fetchLeads = async (filters?: LeadFilter, page: number = 1, limit: number = 10) => {
   try {
     let queryParams = new URLSearchParams();
-    
+
     // Add pagination parameters
     queryParams.append('page', page.toString());
     queryParams.append('limit', limit.toString());
-    
+
     // Add filter parameters if they exist
     if (filters) {
       if (filters.status) queryParams.append('status', filters.status);
@@ -292,7 +293,7 @@ export const fetchLeads = async (filters?: LeadFilter, page: number = 1, limit: 
       if (filters.search) queryParams.append('search', filters.search);
       if (filters.tags && filters.tags.length > 0) queryParams.append('tags', filters.tags.join(','));
     }
-    
+
     const response = await apiClient.get(`/leads?${queryParams.toString()}`);
     return response.data;
   } catch (error) {
@@ -327,7 +328,7 @@ export const createLeadActivity = async (activityData: LeadActivityData) => {
       // Add any other properties
       ...(activityData.id && { id: activityData.id })
     };
-    
+
     const response = await apiClient.post('/leads/activities', apiRequestData);
     return response.data;
   } catch (error) {
@@ -376,7 +377,7 @@ export const fetchLeadActivities = async (leadId: string, page: number = 1, limi
       page: page.toString(),
       limit: limit.toString()
     });
-    
+
     const response = await apiClient.get(`/leads/${leadId}/activities?${queryParams.toString()}`);
     return response.data;
   } catch (error) {
@@ -400,7 +401,7 @@ export const scheduleLeadActivity = async (activityData: LeadActivityData) => {
       // Add any other properties
       ...(activityData.id && { id: activityData.id })
     };
-    
+
     const response = await apiClient.post('/leads/schedule-activity', apiRequestData);
     return response.data;
   } catch (error) {
