@@ -1,0 +1,153 @@
+trigger:
+  - main
+
+resources:
+  - repo: self
+
+variables:
+  - group: qb-prod-deploy-variables
+
+  - name: dockerRegistryServiceConnection
+    value: 'bf813309-d3d2-42c1-ac2a-e3d98166edba'
+  - name: imageRepository
+    value: 'web'
+  - name: containerRegistry
+    value: 'quicbidprodregistery.azurecr.io'
+  - name: dockerfilePath
+    value: '$(Build.SourcesDirectory)/Dockerfile'
+  - name: tag
+    value: '$(Build.BuildId)'
+  - name: vmImageName
+    value: 'ubuntu-latest'
+
+  - name: vm1IpAddress
+    value: '74.225.252.106'
+  - name: vm2IpAddress
+    value: '40.81.240.242'
+  - name: vmServiceName
+    value: 'quickbidweb'
+
+stages:
+
+# ---------------- Stage 1: Build ----------------
+- stage: BuildAndPush
+  displayName: Build and Push Docker Image
+  jobs:
+    - job: Build
+      displayName: Build Docker Image
+      pool:
+        vmImage: $(vmImageName)
+      steps:
+        - task: Docker@2
+          displayName: Build and Push Image to ACR
+          inputs:
+            command: buildAndPush
+            repository: $(imageRepository)
+            dockerfile: $(dockerfilePath)
+            containerRegistry: $(dockerRegistryServiceConnection)
+            tags: |
+              $(tag)
+
+# ---------------- Stage 2: Pre-Deploy VM1 ----------------
+- stage: PreDeployVM1
+  displayName: Check readiness for VM1
+  dependsOn: BuildAndPush
+  jobs:
+    - job: CheckVM1
+      displayName: Check VM1 connectivity and disk
+      pool:
+        vmImage: $(vmImageName)
+      steps:
+        - task: SSH@0
+          displayName: Check Docker and disk space on VM1
+          inputs:
+            sshEndpoint: 'qb-prod-vm001-connection'
+            runOptions: 'inline'
+            inline: |
+              set -e
+              echo "Checking Docker version..."
+              docker --version
+              echo "Checking disk space..."
+              df -h
+
+# ---------------- Stage 3: Deploy to VM1 ----------------
+- stage: DeployToVM1
+  displayName: Deploy Docker Image to VM1
+  dependsOn: PreDeployVM1
+  jobs:
+    - job: Deploy
+      displayName: SSH Deploy to VM1
+      pool:
+        vmImage: $(vmImageName)
+      steps:
+        - task: SSH@0
+          displayName: Deploy container to VM1
+          inputs:
+            sshEndpoint: 'qb-prod-vm001-connection'
+            runOptions: 'inline'
+            inline: |
+              set -e
+              echo "Stopping existing container on VM1..."
+              docker stop $(vmServiceName) || true
+              docker rm $(vmServiceName) || true
+
+              echo "Logging into ACR..."
+              echo $(ACR_PASSWORD) | docker login $(containerRegistry) -u $(ACR_USERNAME) --password-stdin
+
+              echo "Pulling new image..."
+              docker pull $(containerRegistry)/$(imageRepository):$(tag)
+
+              echo "Running new container..."
+              docker run -d --name $(vmServiceName) -p 3000:4101 $(containerRegistry)/$(imageRepository):$(tag)
+
+# ---------------- Stage 4: Pre-Deploy VM2 ----------------
+- stage: PreDeployVM2
+  displayName: Check readiness for VM2
+  dependsOn: DeployToVM1
+  jobs:
+    - job: CheckVM2
+      displayName: Check VM2 connectivity and disk
+      pool:
+        vmImage: $(vmImageName)
+      steps:
+        - task: SSH@0
+          displayName: Check Docker and disk space on VM2
+          inputs:
+            sshEndpoint: 'qb-prod-vm002-connection'
+            runOptions: 'inline'
+            inline: |
+              set -e
+              echo "Checking Docker version..."
+              docker --version
+              echo "Checking disk space..."
+              df -h
+
+# ---------------- Stage 5: Deploy to VM2 ----------------
+- stage: DeployToVM2
+  displayName: Deploy Docker Image to VM2
+  dependsOn: PreDeployVM2
+  jobs:
+    - job: Deploy
+      displayName: SSH Deploy to VM2
+      pool:
+        vmImage: $(vmImageName)
+      steps:
+        - task: SSH@0
+          displayName: Deploy container to VM2
+          inputs:
+            sshEndpoint: 'qb-prod-vm002-connection'
+            runOptions: 'inline'
+            inline: |
+              set -e
+              echo "Stopping existing container on VM2..."
+              docker stop $(vmServiceName) || true
+              docker rm $(vmServiceName) || true
+
+              echo "Logging into ACR..."
+              echo $(ACR_PASSWORD) | docker login $(containerRegistry) -u $(ACR_USERNAME) --password-stdin
+
+              echo "Pulling new image..."
+              docker pull $(containerRegistry)/$(imageRepository):$(tag)
+
+              echo "Running new container..."
+              docker run -d --name $(vmServiceName) -p 3000:4101 $(containerRegistry)/$(imageRepository):$(tag)

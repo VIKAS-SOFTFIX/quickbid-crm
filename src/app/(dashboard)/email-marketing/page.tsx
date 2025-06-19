@@ -75,10 +75,28 @@ import TextAlign from '@tiptap/extension-text-align';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '@tiptap/extension-image';
 import Heading from '@tiptap/extension-heading';
-import {  EMAIL_TEMPLATES } from './templates';
+import { EMAIL_TEMPLATES } from './templates';
 import dynamic from 'next/dynamic';
 import { useEmailMarketing } from '@/hooks/useEmailMarketing';
 import { SendEmailRequest } from '@/services/emailMarketingService';
+import { 
+  GEM_STATES, 
+  GEM_CATEGORIES, 
+  GEM_DISTRICTS_BY_STATE, 
+  GEM_PRODUCTS_BY_CATEGORY,
+  GEM_BATCHES,
+  GEM_EMAIL_BATCH,
+  MSME_TEST_EMAILS 
+} from './gem-mock-data';
+
+// Define TypeScript interfaces for our data structures
+interface DistrictsByState {
+  [state: string]: string[];
+}
+
+interface ProductsByCategory {
+  [category: string]: string[];
+}
 
 // Maximum file size in bytes (5MB)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -229,6 +247,9 @@ export default function EmailMarketingPage() {
     isClient
   } = useEmailMarketing();
   
+  // Add selector for data source type (GeM or MSME)
+  const [dataSourceType, setDataSourceType] = useState<string>('GeM');
+  
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [tabValue, setTabValue] = useState(0);
@@ -253,18 +274,18 @@ export default function EmailMarketingPage() {
   const [fileUploadError, setFileUploadError] = useState('');
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
 
-  // Add states for hierarchical selection
-  const [states, setStates] = useState<string[]>(['Test State', 'Karnataka', 'Maharashtra']);
+  // Update states for hierarchical selection using GeM mock data
+  const [states, setStates] = useState<string[]>(GEM_STATES);
   const [selectedState, setSelectedState] = useState<string>('');
-  const [categories, setCategories] = useState<string[]>(['Test Category', 'Electronics', 'Furniture', 'Vehicles']);
+  const [categories, setCategories] = useState<string[]>(GEM_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [districts, setDistricts] = useState<string[]>(['Test District', 'Bangalore Urban', 'Mumbai', 'Pune']);
+  const [districts, setDistricts] = useState<string[]>([]);
   const [selectedDistrict, setSelectedDistrict] = useState<string>('');
-  const [batches, setBatches] = useState<string[]>(['Batch 1', 'Batch 2', 'Batch 3']);
+  const [batches, setBatches] = useState<string[]>(GEM_BATCHES.map(batch => batch.batch_name));
   const [selectedBatch, setSelectedBatch] = useState<string>('');
 
-  // Add products state
-  const [products, setProducts] = useState<string[]>(['Mobile', 'Laptop', 'Tablet', 'Accessories']);
+  // Add products state using GeM mock data
+  const [products, setProducts] = useState<string[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>('');
 
   // Test emails by batch with proper type
@@ -272,19 +293,23 @@ export default function EmailMarketingPage() {
     [key: string]: { id: string; email: string; name: string }[];
   }
 
+  // Define MSME leads
+  const msmeLeads = [
+    { id: '1', email: 'vermakas99@gmail.com', name: 'VIKAS KUMAR VERMA' },
+    { id: '2', email: 'anuj@toplogic.in', name: 'Anuj' },
+    { id: '3', email: 'Info@toplogic.in', name: 'Info' },
+    { id: '4', email: 'avinash@toplogic.in', name: 'Avinash' },
+    { id: '5', email: 'anuj@quickbid.co.in', name: 'Anuj QB' },
+    { id: '6', email: 'vikas@quickbid.co.in', name: 'Vikas' },
+    { id: '7', email: 'anujkax@yahoo.com', name: 'Anuj Yahoo' },
+    { id: '8', email: 'anujkax@gmail.com', name: 'Anuj Gmail' },
+  ];
+
+  // Create test emails by batch using defined MSME leads
   const testEmails: TestEmailsType = {
-    'Batch 1': [
-      { id: '1', email: 'vermakas99@gmail.com', name: 'VIKAS KUMAR VERMA' },
-      // { id: '1', email: 'anuj@toplogic.in', name: 'Anuj' },
-      // { id: '2', email: 'Info@toplogic.in', name: 'Info' },
-      // { id: '3', email: 'avinash@toplogic.in', name: 'Avinash' },
-      // { id: '4', email: 'anuj@quickbid.co.in', name: 'Anuj QB' },
-      // { id: '5', email: 'vikas@quickbid.co.in', name: 'Vikas' },
-      // { id: '6', email: 'anujkax@yahoo.com', name: 'Anuj Yahoo' },
-      // { id: '7', email: 'anujkax@gmail.com', name: 'Anuj Gmail' },
-    ],
-    'Batch 2': [],
-    'Batch 3': [],
+    'Batch 1': msmeLeads.slice(0, 3),  // First 3 emails
+    'Batch 2': msmeLeads.slice(3, 6),  // Next 3 emails
+    'Batch 3': msmeLeads.slice(6),     // Last 2 emails
   };
 
   // Initialize TipTap editor
@@ -318,28 +343,79 @@ export default function EmailMarketingPage() {
     },
   });
 
-  // Fetch leads (mock data for now)
+  // Add debug logging to verify GeM data is loaded correctly
   useEffect(() => {
-    // In a real implementation, you would fetch leads from your API
-    setAvailableLeads([
-      { id: '1', email: 'vermakas99@gmail.com', name: 'VIKAS KUMAR VERMA' },
-      // { id: '1', email: 'anuj@toplogic.in', name: 'Anuj' },
-      // { id: '2', email: 'Info@toplogic.in', name: 'Info' },
-      // { id: '3', email: 'avinash@toplogic.in', name: 'Avinash' },
-      // { id: '4', email: 'anuj@quickbid.co.in', name: 'Anuj QB' },
-      // { id: '5', email: 'vikas@quickbid.co.in', name: 'Vikas' },
-      // { id: '6', email: 'anujkax@yahoo.com', name: 'Anuj Yahoo' },
-      // { id: '7', email: 'anujkax@gmail.com', name: 'Anuj Gmail' },
-    ]);
+    console.log("GeM Data Loaded:", {
+      states: GEM_STATES.length,
+      categories: GEM_CATEGORIES.length,
+      batches: GEM_BATCHES.length,
+      emailBatchSize: GEM_EMAIL_BATCH.length,
+      emailSample: GEM_EMAIL_BATCH.slice(0, 3).map(e => e.address)
+    });
   }, []);
+
+  // Fetch leads using appropriate data source
+  useEffect(() => {
+    if (dataSourceType === 'GeM') {
+      // Convert GEM_EMAIL_BATCH to the format expected by availableLeads
+      const gemLeads = GEM_EMAIL_BATCH.map((email, index) => ({
+        id: index.toString(),
+        email: email.address,
+        name: email.name || 'Unknown Company',
+      }));
+      
+      setAvailableLeads(gemLeads);
+      console.log(`Loaded ${gemLeads.length} GeM leads`);
+    } else {
+      // Use specified MSME leads data
+      setAvailableLeads(msmeLeads);
+      console.log(`Loaded ${msmeLeads.length} MSME leads`);
+    }
+  }, [dataSourceType]);
 
   // Handle batch selection and auto-select corresponding emails
   useEffect(() => {
-    if (selectedBatch && testEmails[selectedBatch]) {
-      setSelectedLeads(testEmails[selectedBatch]);
+    if (selectedBatch) {
+      if (dataSourceType === 'GeM') {
+        // For GeM data, find the batch in GEM_BATCHES
+        const selectedGemBatch = GEM_BATCHES.find(batch => batch.batch_name === selectedBatch);
+        if (selectedGemBatch) {
+          // Convert recipients from {address, name} format to {id, email, name} format
+          const gemLeads = selectedGemBatch.recipients.map((recipient, index) => ({
+            id: index.toString(),
+            email: recipient.address,
+            name: recipient.name || 'Unknown',
+          }));
+          setSelectedLeads(gemLeads);
+        }
+      } else {
+        // For MSME data, use the testEmails
+        if (testEmails[selectedBatch]) {
+          setSelectedLeads(testEmails[selectedBatch]);
+        }
+      }
+      
+      // Update email data with batch number
+      setEmailData({
+        ...emailData,
+        batchNumber: selectedBatch
+      });
     }
-  }, [selectedBatch]);
+  }, [selectedBatch, dataSourceType, emailData]);
 
+  // Define TypeScript interfaces for our data structures
+  interface DistrictsByState {
+    [state: string]: string[];
+  }
+  
+  interface ProductsByCategory {
+    [category: string]: string[];
+  }
+  
+  const districtsMap = GEM_DISTRICTS_BY_STATE as DistrictsByState;
+  const productsMap = GEM_PRODUCTS_BY_CATEGORY as ProductsByCategory;
+
+  // Update state change handler to update districts based on selected state
   const handleStateChange = (event: SelectChangeEvent) => {
     const stateValue = event.target.value;
     setSelectedState(stateValue);
@@ -347,12 +423,21 @@ export default function EmailMarketingPage() {
       ...emailData,
       state: stateValue
     });
+    
+    // Update districts based on selected state
+    if (stateValue && districtsMap[stateValue]) {
+      setDistricts(districtsMap[stateValue]);
+    } else {
+      setDistricts([]);
+    }
+    
     setSelectedCategory('');
     setSelectedDistrict('');
     setSelectedBatch('');
     setSelectedLeads([]);
   };
 
+  // Update category change handler to update products based on selected category
   const handleCategoryChange = (event: SelectChangeEvent) => {
     const categoryValue = event.target.value;
     setSelectedCategory(categoryValue);
@@ -360,6 +445,14 @@ export default function EmailMarketingPage() {
       ...emailData,
       category: categoryValue
     });
+    
+    // Update products based on selected category
+    if (categoryValue && productsMap[categoryValue]) {
+      setProducts(productsMap[categoryValue]);
+    } else {
+      setProducts([]);
+    }
+    
     setSelectedDistrict('');
     setSelectedBatch('');
     setSelectedLeads([]);
@@ -379,10 +472,26 @@ export default function EmailMarketingPage() {
   const handleBatchChange = (event: SelectChangeEvent) => {
     const batchValue = event.target.value;
     setSelectedBatch(batchValue);
-    setEmailData({
-      ...emailData,
-      batchNumber: batchValue
-    });
+    
+    // Log batch details for debugging
+    if (batchValue) {
+      if (dataSourceType === 'GeM') {
+        const selectedBatchData = GEM_BATCHES.find(batch => batch.batch_name === batchValue);
+        if (selectedBatchData) {
+          console.log(`Selected GeM batch: ${batchValue}`);
+          console.log(`Category: ${selectedBatchData.category}`);
+          console.log(`Type: ${selectedBatchData.type}`);
+          console.log(`Recipient count: ${selectedBatchData.recipient_count}`);
+          console.log(`Sample recipients:`, selectedBatchData.recipients.slice(0, 3));
+        }
+      } else {
+        // MSME batch
+        const selectedBatchEmails = testEmails[batchValue] || [];
+        console.log(`Selected MSME batch: ${batchValue}`);
+        console.log(`Recipient count: ${selectedBatchEmails.length}`);
+        console.log(`Batch emails:`, selectedBatchEmails);
+      }
+    }
   };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -565,10 +674,16 @@ export default function EmailMarketingPage() {
         recipients: {
           to: emailData.recipients
         },
-        state: emailData.state || undefined,
-        product: emailData.product || undefined,
-        category: emailData.category || undefined,
-        district: emailData.district || undefined,
+        // Include data source type in the request
+        dataSourceType: dataSourceType,
+        // Only include fields relevant to the selected data source type
+        ...(dataSourceType === 'MSME' ? {
+          state: emailData.state || undefined,
+          product: emailData.product || undefined,
+          category: emailData.category || undefined,
+          district: emailData.district || undefined,
+        } : {}),
+        // Always include batch number
         batchNumber: emailData.batchNumber || undefined
       };
 
@@ -577,7 +692,7 @@ export default function EmailMarketingPage() {
       
       if (success) {
         // Show success message
-        setSuccessMessage(`Successfully sent ${emailData.recipients.length} emails`);
+        setSuccessMessage(`Successfully sent ${emailData.recipients.length} emails using ${dataSourceType} data source`);
         setErrorMessage('');
         
         // Reset form after successful send
@@ -644,6 +759,362 @@ export default function EmailMarketingPage() {
       ...emailData,
       product: productValue
     });
+  };
+
+  // Handle data source type change
+  const handleDataSourceTypeChange = (event: SelectChangeEvent) => {
+    const newType = event.target.value;
+    setDataSourceType(newType);
+    
+    // Reset filters and selected leads when changing data source type
+    setSelectedState('');
+    setSelectedCategory('');
+    setSelectedDistrict('');
+    setSelectedProduct('');
+    setSelectedBatch('');
+    setSelectedLeads([]);
+    
+    // Update batches based on data source type
+    if (newType === 'GeM') {
+      setBatches(GEM_BATCHES.map(batch => batch.batch_name));
+    } else {
+      setBatches(Object.keys(testEmails));
+    }
+    
+    // Clear email data filters
+    setEmailData({
+      ...emailData,
+      state: '',
+      product: '',
+      category: '',
+      district: '',
+      batchNumber: ''
+    });
+  };
+
+  // Initialize batches based on data source type
+  useEffect(() => {
+    if (dataSourceType === 'GeM') {
+      setBatches(GEM_BATCHES.map(batch => batch.batch_name));
+    } else {
+      setBatches(Object.keys(testEmails));
+    }
+  }, [dataSourceType]); // This runs on initial render and whenever dataSourceType changes
+
+  // Render the Recipients tab with appropriate filters based on data source type
+  const renderRecipientsTab = () => {
+    return (
+      <Box>
+        <Typography variant="subtitle1" gutterBottom>
+          Add Recipients
+        </Typography>
+        
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} md={9}>
+            <TextField
+              fullWidth
+              label="Email Address"
+              variant="outlined"
+              value={recipientInput}
+              onChange={(e) => setRecipientInput(e.target.value)}
+              placeholder="example@email.com"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={handleAddRecipient}>
+                      <AddIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Button 
+              fullWidth 
+              variant="contained" 
+              color="primary" 
+              onClick={handleAddRecipient}
+              sx={{ height: '100%' }}
+            >
+              Add Recipient
+            </Button>
+          </Grid>
+        </Grid>
+
+        <Typography variant="subtitle1" gutterBottom>
+          Select Data Source Type
+        </Typography>
+        
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth>
+              <InputLabel id="data-source-type-label">Data Source Type</InputLabel>
+              <Select
+                labelId="data-source-type-label"
+                id="data-source-type"
+                value={dataSourceType}
+                label="Data Source Type"
+                onChange={handleDataSourceTypeChange}
+              >
+                <MenuItem value="GeM">GeM</MenuItem>
+                <MenuItem value="MSME">MSME</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
+
+        {dataSourceType === 'MSME' ? (
+          // MSME Filters - Show hierarchical selection with all filters
+          <>
+            <Typography variant="subtitle1" gutterBottom>
+              Select MSME Leads Hierarchically
+            </Typography>
+            
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth>
+                  <InputLabel id="state-select-label">State</InputLabel>
+                  <Select
+                    labelId="state-select-label"
+                    id="state-select"
+                    value={selectedState}
+                    label="State"
+                    onChange={handleStateChange}
+                  >
+                    <MenuItem value=""><em>None</em></MenuItem>
+                    {states.map((state) => (
+                      <MenuItem key={state} value={state}>{state}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth>
+                  <InputLabel id="product-select-label">Product</InputLabel>
+                  <Select
+                    labelId="product-select-label"
+                    id="product-select"
+                    value={selectedProduct}
+                    label="Product"
+                    onChange={handleProductChange}
+                  >
+                    <MenuItem value=""><em>None</em></MenuItem>
+                    {products.map((product) => (
+                      <MenuItem key={product} value={product}>{product}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth disabled={!selectedState}>
+                  <InputLabel id="category-select-label">Category</InputLabel>
+                  <Select
+                    labelId="category-select-label"
+                    id="category-select"
+                    value={selectedCategory}
+                    label="Category"
+                    onChange={handleCategoryChange}
+                  >
+                    <MenuItem value=""><em>None</em></MenuItem>
+                    {categories.map((category) => (
+                      <MenuItem key={category} value={category}>{category}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth disabled={!selectedCategory}>
+                  <InputLabel id="district-select-label">District</InputLabel>
+                  <Select
+                    labelId="district-select-label"
+                    id="district-select"
+                    value={selectedDistrict}
+                    label="District"
+                    onChange={handleDistrictChange}
+                  >
+                    <MenuItem value=""><em>None</em></MenuItem>
+                    {districts.map((district) => (
+                      <MenuItem key={district} value={district}>{district}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth disabled={!selectedDistrict}>
+                  <InputLabel id="batch-select-label">Batch</InputLabel>
+                  <Select
+                    labelId="batch-select-label"
+                    id="batch-select"
+                    value={selectedBatch}
+                    label="Batch"
+                    onChange={handleBatchChange}
+                  >
+                    <MenuItem value=""><em>None</em></MenuItem>
+                    {Object.keys(testEmails).map((batchName) => (
+                      <MenuItem key={batchName} value={batchName}>
+                        {batchName} ({testEmails[batchName].length} emails)
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+
+            {/* Display selected batch details for MSME */}
+            {selectedBatch && (
+              <Box sx={{ mb: 3 }}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Selected MSME Batch Details
+                    </Typography>
+                    <Typography variant="body1">
+                      <strong>Batch:</strong> {selectedBatch}
+                    </Typography>
+                    <Typography variant="body1">
+                      <strong>Recipients:</strong> {testEmails[selectedBatch]?.length || 0}
+                    </Typography>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      These are specific MSME leads for testing purposes.
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Box>
+            )}
+          </>
+        ) : (
+          // GeM Filters - Only show batch selection with enhanced batch details
+          <>
+            <Typography variant="subtitle1" gutterBottom>
+              Select GeM Leads Batch
+            </Typography>
+            
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel id="gem-batch-select-label">Batch</InputLabel>
+                  <Select
+                    labelId="gem-batch-select-label"
+                    id="gem-batch-select"
+                    value={selectedBatch}
+                    label="Batch"
+                    onChange={handleBatchChange}
+                  >
+                    <MenuItem value=""><em>None</em></MenuItem>
+                    {GEM_BATCHES.map((batch) => (
+                      <MenuItem key={batch.batch_name} value={batch.batch_name}>
+                        {batch.batch_name} ({batch.recipient_count} emails) - {batch.category}: {batch.type}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+            
+            {/* Add a note about the batches */}
+            <Alert severity="info" sx={{ mb: 2 }}>
+              These batches were created from the GeM_Resellers.xlsx data file. Each batch contains 
+              unique recipients based on company type or email domain.
+            </Alert>
+            
+            {/* Display selected batch details */}
+            {selectedBatch && (
+              <Box sx={{ mb: 3 }}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Selected Batch Details
+                    </Typography>
+                    {GEM_BATCHES.map(batch => {
+                      if (batch.batch_name === selectedBatch) {
+                        return (
+                          <Box key={batch.batch_name}>
+                            <Typography variant="body1">
+                              <strong>Category:</strong> {batch.category}
+                            </Typography>
+                            <Typography variant="body1">
+                              <strong>Type:</strong> {batch.type}
+                            </Typography>
+                            <Typography variant="body1">
+                              <strong>Recipients:</strong> {batch.recipient_count}
+                            </Typography>
+                            <Divider sx={{ my: 1 }} />
+                            <Typography variant="body2" color="text.secondary">
+                              These recipients were selected from the GeM_Resellers.xlsx file based on their {batch.category.toLowerCase()}.
+                            </Typography>
+                          </Box>
+                        );
+                      }
+                      return null;
+                    })}
+                  </CardContent>
+                </Card>
+              </Box>
+            )}
+          </>
+        )}
+
+        <Typography variant="subtitle1" gutterBottom>
+          Selected Leads ({selectedLeads.length})
+        </Typography>
+        
+        <Paper variant="outlined" sx={{ p: 2, mb: 3, maxHeight: '200px', overflow: 'auto' }}>
+          {selectedLeads.length > 0 ? (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {selectedLeads.map((lead) => (
+                <Chip
+                  key={lead.id}
+                  label={`${lead.name} (${lead.email})`}
+                  color="secondary"
+                  variant="outlined"
+                />
+              ))}
+            </Box>
+          ) : (
+            <Typography color="textSecondary">No leads selected</Typography>
+          )}
+        </Paper>
+
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={handleAddSelectedLeads}
+            disabled={selectedLeads.length === 0}
+          >
+            Add Selected Leads to Recipients
+          </Button>
+        </Box>
+
+        <Typography variant="subtitle1" gutterBottom>
+          Current Recipients ({emailData.recipients.length})
+        </Typography>
+        
+        <Paper variant="outlined" sx={{ p: 2, mb: 3, maxHeight: '200px', overflow: 'auto' }}>
+          {emailData.recipients.length > 0 ? (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {emailData.recipients.map((recipient, index) => (
+                <Chip
+                  key={index}
+                  label={recipient.address}
+                  onDelete={() => handleRemoveRecipient(index)}
+                  color="primary"
+                  variant="outlined"
+                />
+              ))}
+            </Box>
+          ) : (
+            <Typography color="textSecondary">No recipients added yet</Typography>
+          )}
+        </Paper>
+      </Box>
+    );
   };
 
   // If we're server-side rendering, return a minimal placeholder
@@ -944,196 +1415,7 @@ export default function EmailMarketingPage() {
               </Box>
             )}
 
-            {tabValue === 1 && (
-              <Box>
-                <Typography variant="subtitle1" gutterBottom>
-                  Add Recipients
-                </Typography>
-                
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                  <Grid item xs={12} md={9}>
-                    <TextField
-                      fullWidth
-                      label="Email Address"
-                      variant="outlined"
-                      value={recipientInput}
-                      onChange={(e) => setRecipientInput(e.target.value)}
-                      placeholder="example@email.com"
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton onClick={handleAddRecipient}>
-                              <AddIcon />
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <Button 
-                      fullWidth 
-                      variant="contained" 
-                      color="primary" 
-                      onClick={handleAddRecipient}
-                      sx={{ height: '100%' }}
-                    >
-                      Add Recipient
-                    </Button>
-                  </Grid>
-                </Grid>
-
-                <Typography variant="subtitle1" gutterBottom>
-                  Select Leads Hierarchically
-                </Typography>
-                
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                  <Grid item xs={12} md={2}>
-                    <FormControl fullWidth>
-                      <InputLabel id="state-select-label">State</InputLabel>
-                      <Select
-                        labelId="state-select-label"
-                        id="state-select"
-                        value={selectedState}
-                        label="State"
-                        onChange={handleStateChange}
-                      >
-                        <MenuItem value=""><em>None</em></MenuItem>
-                        {states.map((state) => (
-                          <MenuItem key={state} value={state}>{state}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  
-                  <Grid item xs={12} md={2}>
-                    <FormControl fullWidth>
-                      <InputLabel id="product-select-label">Product</InputLabel>
-                      <Select
-                        labelId="product-select-label"
-                        id="product-select"
-                        value={selectedProduct}
-                        label="Product"
-                        onChange={handleProductChange}
-                      >
-                        <MenuItem value=""><em>None</em></MenuItem>
-                        {products.map((product) => (
-                          <MenuItem key={product} value={product}>{product}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  
-                  <Grid item xs={12} md={2}>
-                    <FormControl fullWidth disabled={!selectedState}>
-                      <InputLabel id="category-select-label">Category</InputLabel>
-                      <Select
-                        labelId="category-select-label"
-                        id="category-select"
-                        value={selectedCategory}
-                        label="Category"
-                        onChange={handleCategoryChange}
-                      >
-                        <MenuItem value=""><em>None</em></MenuItem>
-                        {categories.map((category) => (
-                          <MenuItem key={category} value={category}>{category}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  
-                  <Grid item xs={12} md={3}>
-                    <FormControl fullWidth disabled={!selectedCategory}>
-                      <InputLabel id="district-select-label">District</InputLabel>
-                      <Select
-                        labelId="district-select-label"
-                        id="district-select"
-                        value={selectedDistrict}
-                        label="District"
-                        onChange={handleDistrictChange}
-                      >
-                        <MenuItem value=""><em>None</em></MenuItem>
-                        {districts.map((district) => (
-                          <MenuItem key={district} value={district}>{district}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  
-                  <Grid item xs={12} md={3}>
-                    <FormControl fullWidth disabled={!selectedDistrict}>
-                      <InputLabel id="batch-select-label">Batch</InputLabel>
-                      <Select
-                        labelId="batch-select-label"
-                        id="batch-select"
-                        value={selectedBatch}
-                        label="Batch"
-                        onChange={handleBatchChange}
-                      >
-                        <MenuItem value=""><em>None</em></MenuItem>
-                        {batches.map((batch) => (
-                          <MenuItem key={batch} value={batch}>{batch}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                </Grid>
-
-                <Typography variant="subtitle1" gutterBottom>
-                  Selected Leads ({selectedLeads.length})
-                </Typography>
-                
-                <Paper variant="outlined" sx={{ p: 2, mb: 3, maxHeight: '200px', overflow: 'auto' }}>
-                  {selectedLeads.length > 0 ? (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {selectedLeads.map((lead) => (
-                        <Chip
-                          key={lead.id}
-                          label={`${lead.name} (${lead.email})`}
-                          color="secondary"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Box>
-                  ) : (
-                    <Typography color="textSecondary">No leads selected</Typography>
-                  )}
-                </Paper>
-
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-                  <Button 
-                    variant="contained" 
-                    color="primary" 
-                    onClick={handleAddSelectedLeads}
-                    disabled={selectedLeads.length === 0}
-                  >
-                    Add Selected Leads to Recipients
-                  </Button>
-                </Box>
-
-                <Typography variant="subtitle1" gutterBottom>
-                  Current Recipients ({emailData.recipients.length})
-                </Typography>
-                
-                <Paper variant="outlined" sx={{ p: 2, mb: 3, maxHeight: '200px', overflow: 'auto' }}>
-                  {emailData.recipients.length > 0 ? (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {emailData.recipients.map((recipient, index) => (
-                        <Chip
-                          key={index}
-                          label={recipient.address}
-                          onDelete={() => handleRemoveRecipient(index)}
-                          color="primary"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Box>
-                  ) : (
-                    <Typography color="textSecondary">No recipients added yet</Typography>
-                  )}
-                </Paper>
-              </Box>
-            )}
+            {tabValue === 1 && renderRecipientsTab()}
 
             {tabValue === 2 && (
               <Box>

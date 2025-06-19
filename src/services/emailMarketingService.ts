@@ -17,6 +17,7 @@ export interface SendEmailRequest {
     cc?: Recipient[];
     bcc?: Recipient[];
   };
+  dataSourceType?: string;
   state?: string;
   product?: string;
   category?: string;

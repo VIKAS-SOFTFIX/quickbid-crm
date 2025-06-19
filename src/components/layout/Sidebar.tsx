@@ -103,30 +103,76 @@ export default function Sidebar() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const router = useRouter();
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
-    'Pipeline': true,
-    'Communications': false,
-    'Administration': false
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
+    // Try to get from localStorage during initialization
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = window.localStorage.getItem('sidebarOpenCategories');
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+    // Default state
+    return {
+      'Pipeline': true,
+      'Communications': false,
+      'Administration': false
+    };
   });
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    // Try to get from localStorage during initialization
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = window.localStorage.getItem('sidebarCollapsed');
+        return saved === 'true';
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+    // Default to false
+    return false;
+  });
 
-  // Set mounted to true after initial render
+  // Set mounted state when component mounts
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const handleCategoryClick = (category: string) => {
-    setOpenCategories(prev => ({
-      ...prev,
-      [category]: !prev[category]
-    }));
+    if (!mounted) return; // Don't perform operations if not mounted yet
+    
+    const newOpenCategories = {
+      ...openCategories,
+      [category]: !openCategories[category]
+    };
+    setOpenCategories(newOpenCategories);
+    
+    // Save to localStorage, but only on client-side
+    try {
+      window.localStorage.setItem('sidebarOpenCategories', JSON.stringify(newOpenCategories));
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
   };
 
   const toggleCollapse = () => {
-    setCollapsed(!collapsed);
+    if (!mounted) return; // Don't perform operations if not mounted yet
+    
+    const newCollapsedState = !collapsed;
+    setCollapsed(newCollapsedState);
+    
+    // Save to localStorage, but only on client-side
+    try {
+      window.localStorage.setItem('sidebarCollapsed', newCollapsedState.toString());
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
   };
 
   // Log user data to check what we're getting

@@ -95,7 +95,7 @@ export default function WhatsAppMessagingPage() {
     isClient,
     fetchContacts,
     fetchTemplates,
-    fetchMessages, // Add this to your useWhatsApp hook
+    fetchMessages,
     sendTextMessage,
     sendTemplateMessage,
     createContact,
@@ -103,6 +103,7 @@ export default function WhatsAppMessagingPage() {
     selectContact,
     setError,
     setSuccess,
+    addOptimisticMessage,
   } = useWhatsApp();
 
   // Local state
@@ -146,8 +147,8 @@ export default function WhatsAppMessagingPage() {
       // Initial fetch
       pollMessages();
 
-      // Set up interval for long polling every 4 seconds
-      pollingIntervalRef.current = setInterval(pollMessages, 4000);
+      // Set up interval for long polling every 3 seconds (changed from 4s)
+      pollingIntervalRef.current = setInterval(pollMessages, 3000);
     };
 
     const stopPolling = () => {
@@ -189,20 +190,44 @@ export default function WhatsAppMessagingPage() {
     if (!selectedContact || !messageText.trim()) return;
 
     try {
-      await sendTextMessage({
-        phoneNumber: selectedContact.phoneNumber,
-        message: messageText,
-      });
+      // Create an optimistic message to show immediately
+      const optimisticMessage: WhatsAppMessage = {
+        _id: `temp-${Date.now()}`,
+        messageId: `temp-${Date.now()}`,
+        waId: selectedContact.waId || '',
+        from: 'me',
+        to: selectedContact.phoneNumber,
+        type: 'text',
+        text: {
+          body: messageText.trim()
+        },
+        status: 'sent',
+        timestamp: new Date().toISOString(),
+        isFromMe: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      // Add optimistic message to the UI immediately
+      const messageToSend = messageText.trim();
       setMessageText('');
       
-      // Immediately fetch messages after sending to show the sent message
+      // Add the optimistic message to the UI
+      addOptimisticMessage(optimisticMessage);
+      
+      // Send the message to the API
+      await sendTextMessage({
+        phoneNumber: selectedContact.phoneNumber,
+        message: messageToSend,
+      });
+      
+      // Fetch messages after sending to sync with server
       if (selectedContact.waId && fetchMessages) {
-        setTimeout(async () => {
-          await fetchMessages(selectedContact.waId?.toString() || '');
-        }, 500);
+        await fetchMessages(selectedContact.waId?.toString() || '');
       }
     } catch (err) {
       console.error('Error sending message:', err);
+      setError('Failed to send message. Please try again.');
     }
   };
 
@@ -211,22 +236,47 @@ export default function WhatsAppMessagingPage() {
     if (!selectedContact || !selectedTemplate) return;
 
     try {
+      // Get the template details 
+      const template = templates.find(t => t.name === selectedTemplate);
+      
+      // Create an optimistic template message
+      const optimisticMessage: WhatsAppMessage = {
+        _id: `temp-${Date.now()}`,
+        messageId: `temp-${Date.now()}`,
+        waId: selectedContact.waId || '',
+        from: 'me',
+        to: selectedContact.phoneNumber,
+        type: 'template',
+        text: {
+          body: `Template: ${selectedTemplate}`
+        },
+        status: 'sent',
+        timestamp: new Date().toISOString(),
+        isFromMe: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      // Add optimistic message to UI
+      addOptimisticMessage(optimisticMessage);
+      
+      // Close dialog and reset selected template
+      setTemplateDialogOpen(false);
+      setSelectedTemplate('');
+      
       await sendTemplateMessage({
         phoneNumber: selectedContact.phoneNumber,
         templateName: selectedTemplate,
         languageCode: 'en', // Default to English
       });
-      setTemplateDialogOpen(false);
-      setSelectedTemplate('');
       
-      // Immediately fetch messages after sending template
+      // Fetch messages after sending to sync with server
       if (selectedContact.waId && fetchMessages) {
-        setTimeout(async () => {
-          await fetchMessages(selectedContact.waId || '');
-        }, 500);
+        await fetchMessages(selectedContact.waId || '');
       }
     } catch (err) {
       console.error('Error sending template message:', err);
+      setError('Failed to send template message. Please try again.');
     }
   };
 

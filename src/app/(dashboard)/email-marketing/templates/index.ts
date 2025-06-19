@@ -418,8 +418,8 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
   },
   {
     id: 'Free-trial-announcement',
-    name: 'Free Trial Announcement',
-    subject: 'Free Trial Announcement',
+    name: 'India’s Smartest AI Tender Tool — Try It FREE for 14 Days!',
+    subject: 'India’s Smartest AI Tender Tool — Try It FREE for 14 Days!',
     content: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; color: #333333;">
 
 <!-- Header with logo -->
@@ -439,7 +439,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
 
 <div style="background-color: #002147; padding: 20px; text-align: center;">
 
-<h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">Stop Overpaying for Tender Information</h1>
+<h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">Stop Paying for Tender Information</h1>
 
 <div style="width: 100px; height: 4px; background-color: #feac0d; margin: 20px auto;"></div>
 
@@ -455,7 +455,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
 
 <p style="font-size: 18px; line-height: 1.6; margin-bottom: 30px; font-weight: 600; color: #002147;">
 
-Stop overpaying for tender information.<br>
+Stop paying for tender information.<br>
 
 QuickBid gives you 2 powerful tools.
 
@@ -550,7 +550,7 @@ Upgrade only if you love the AI.
 
 <p style="margin-bottom: 0;">
 
-<a href="https://quickbid.co.in/register" style="background-color: #feac0d; color: #002147; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; text-transform: uppercase;">
+<a href="https://quickbid.co.in/signup" style="background-color: #feac0d; color: #002147; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; text-transform: uppercase;">
 
 👉 Create Your Free Account Now
 

@@ -242,6 +242,11 @@ export const useWhatsApp = (props?: UseWhatsAppProps) => {
     }
   }, [fetchMessages]);
 
+  // Add message optimistically to UI
+  const addOptimisticMessage = useCallback((message: WhatsAppMessage) => {
+    setMessages(prevMessages => [...prevMessages, message]);
+  }, []);
+
   return {
     // State
     loading,
@@ -268,5 +273,6 @@ export const useWhatsApp = (props?: UseWhatsAppProps) => {
     setSelectedContact,
     setError,
     setSuccess,
+    addOptimisticMessage,
   };
 }; 
