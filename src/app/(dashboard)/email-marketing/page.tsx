@@ -260,7 +260,7 @@ export default function EmailMarketingPage() {
     htmlContent: '',
     recipients: [] as {address: string}[],
     senderAddress: "DoNotReply@56b2a9ef-273e-4a4f-8036-92dd766e8f7a.azurecomm.net", // Azure Communication Services domain
-    connectionString: "endpoint=https://aes-qb-mkt.india.communication.azure.com/;accesskey=AM9HFoZ4F8tnrZi0iav8Sp58z84CCKyTTL2O5YzLkQnCZIFnlmIBJQQJ99BEACULyCph9wJ9AAAAAZCSAlxs", // Azure Communication Services connection string
+    connectionString: process.env.NEXT_PUBLIC_COMMUNICATION_SERVICES_CONNECTION_STRING || '', // Azure Communication Services connection string
     attachments: [] as File[],
     state: '',
     product: '',

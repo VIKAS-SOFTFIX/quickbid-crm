@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Box, Typography, Paper, Alert, Chip, Button, Divider, CircularProgress } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import Cookies from 'js-cookie';
+import { API_BASE_URL } from '@/config/apiUrl';
 
 export default function AuthStatus() {
   const { user } = useAuth();
@@ -62,7 +63,7 @@ export default function AuthStatus() {
       }
       console.log(headers,"headers");
       // Make a request to a protected endpoint
-      const response = await fetch('https://api.quickbid.co.in/support/api/users', {
+      const response = await fetch(`${API_BASE_URL}/users`, {
         method: 'GET',
         headers,
         // Include credentials to send cookies

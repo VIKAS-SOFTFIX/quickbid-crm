@@ -11,8 +11,9 @@ import {
   EmailRecipient,
   EmailBody 
 } from '../types';
+import { API_BASE_URL as SUPPORT_API_URL } from '@/config/apiUrl';
 
-const API_BASE_URL = 'https://api.quickbid.co.in/support/api/email';
+const API_BASE_URL = `${SUPPORT_API_URL}/email`;
 
 // Helper function to add auth headers
 const getAuthHeaders = () => {

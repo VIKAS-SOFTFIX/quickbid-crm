@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Box, Button, Typography, Paper, TextField } from '@mui/material';
 import axios from 'axios';
+import { API_BASE_URL } from '@/config/apiUrl';
 
 export default function ApiDebugger() {
   const [response, setResponse] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [url, setUrl] = useState('https://api.quickbid.co.in/support/api/demos');
+  const [url, setUrl] = useState(`${API_BASE_URL}/demos`);
 
   const testApi = async () => {
     setLoading(true);

@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 // Base API configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.quickbid.co.in/support/api';
+import { API_BASE_URL } from '@/config/apiUrl';
 
 // API Client class that handles HTTP requests with axios
 export class ApiClient {

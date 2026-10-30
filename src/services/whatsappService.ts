@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Use environment variable or default to localhost
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.quickbid.co.in/support/api';
+// Base URL of the support API (NEXT_PUBLIC_API_URL)
+import { API_BASE_URL as API_URL } from '@/config/apiUrl';
 
 // Create axios instance
 const apiClient = axios.create({

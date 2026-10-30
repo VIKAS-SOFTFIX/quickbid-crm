@@ -13,8 +13,8 @@ import {
   completeDemoActivity
 } from '@/services/demoActivityService';
 
-// Define the BASE_URL
-const BASE_URL = 'https://api.quickbid.co.in/support';
+// Support API URL without the trailing /api (request paths start with /api/)
+import { API_ROOT_URL as BASE_URL } from '@/config/apiUrl';
 
 // Timeline event interface
 export interface TimelineEvent {

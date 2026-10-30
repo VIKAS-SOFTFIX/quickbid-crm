@@ -151,7 +151,7 @@ export const fetchWaitlistUsers = async () => {
       {
         headers: {
         
-          "x-api-key": "quickbid@2024",
+          "x-api-key": process.env.NEXT_PUBLIC_WAITLIST_API_KEY,
        
         },
       }

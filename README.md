@@ -69,7 +69,7 @@ Versions are the ranges declared in [`package.json`](package.json).
 git clone https://github.com/VIKAS-SOFTFIX/quickbid-crm.git
 cd quickbid-crm
 npm install                 # add --legacy-peer-deps if npm reports peer conflicts (the Dockerfile does)
-# create .env.local (see below); there is no .env.example in the repo
+cp .env.example .env.local  # then fill in the values (see below)
 npm run dev                 # http://localhost:3000
 
 # production
@@ -82,21 +82,31 @@ and copied to an `auth_token` cookie by the API helpers.
 
 ## Environment variables
 
-Define these in `.env.local` (all `.env*` files are git-ignored). Next.js exposes only `NEXT_PUBLIC_*` variables
-to browser code, and most of this app runs in the browser.
+[`.env.example`](.env.example) lists every variable the code reads, with placeholders. Copy it to `.env.local`
+and fill in the values; all other `.env` and `.env.*` files are git-ignored. On Vercel, set the same variables in
+the project's Environment Variables settings. Next.js exposes only `NEXT_PUBLIC_*` variables to browser code, and
+most of this app runs in the browser. It inlines `NEXT_PUBLIC_*` values when `next build` runs, so set them before
+building and rebuild after any change.
 
 | Variable | Purpose | Used in |
 | --- | --- | --- |
-| `NEXT_PUBLIC_API_URL` | Base URL of the QuickBid support API (defaults to `https://api.quickbid.co.in/support/api`) | `src/services/apiClient.ts`, `emailTemplateService.ts`, `whatsappService.ts` |
-| `NEXT_PUBLIC_API_BASE_URL` | Base URL for the waitlist endpoint `/qb/users/v1/waitlist` | `src/services/waitlistService.ts` |
+| `NEXT_PUBLIC_API_URL` | Base URL of the QuickBid support API, ending in `/api` (defaults to `https://api.quickbid.co.in/support/api`) | `src/config/apiUrl.ts`, imported by every support API caller |
+| `NEXT_PUBLIC_API_BASE_URL` | Base URL for the waitlist endpoint `/qb/users/v1/waitlist` (defaults to `https://api.quickbid.co.in`) | `src/services/waitlistService.ts` |
 | `NEXT_PUBLIC_WEB_SIGNUP_URL` | Redirect target when the waitlist API returns 401 | `src/services/waitlistService.ts` |
-| `ENCRYPTION_KEY` | AES-256 key used to decrypt encrypted waitlist responses | `src/services/EncryptionConfigManager.ts` |
+| `NEXT_PUBLIC_WAITLIST_API_KEY` | Value of the `x-api-key` header sent with the waitlist request | `src/services/waitlistService.ts` |
+| `NEXT_PUBLIC_ENCRYPTION_KEY` | AES-256 key used to decrypt encrypted waitlist responses (required when responses are encrypted) | `src/services/EncryptionConfigManager.ts` |
+| `NEXT_PUBLIC_COMMUNICATION_SERVICES_CONNECTION_STRING` | Azure Communication Services connection string that the email composer sends to the backend | `src/app/(dashboard)/email-marketing/page.tsx` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Google OAuth settings (Analytics scopes) | `src/config/api.ts` |
+| `META_APP_ID`, `META_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ID` | Meta / WhatsApp Business settings | `src/config/api.ts` |
 | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_REDIRECT_URI`, `LINKEDIN_ACCESS_TOKEN` | LinkedIn API settings | `src/config/api.ts` |
 
-Not every module reads `NEXT_PUBLIC_API_URL`: `src/lib/api.ts` (users, roles, leads), `src/services/apiService.ts`
-and `src/hooks/useDemoDetail.ts` (demos), `src/contexts/AuthContext.tsx` (login), `src/components/AuthStatus.tsx`
-and the mailbox's `services/emailApi.ts` use a fixed backend URL.
+`src/config/apiUrl.ts` exports `API_BASE_URL` (the support API URL) and `API_ROOT_URL` (the same URL without the
+trailing `/api`, used by `services/apiService.ts` and `hooks/useDemoDetail.ts`, whose paths start with `/api/`).
+Only the waitlist service uses a different base URL (`NEXT_PUBLIC_API_BASE_URL`).
+
+The waitlist API key, the encryption key and the Azure connection string are used by browser code, so their values
+end up in the JavaScript bundle that every visitor downloads. Treat them as exposed until those calls move to the
+backend.
 
 ## npm scripts
 
@@ -121,6 +131,7 @@ and the mailbox's `services/emailApi.ts` use a fixed backend URL.
 │   │   └── layout.tsx             # Root layout (MUI theme + Providers; document.tsx = Emotion registry)
 │   ├── components/                # DashboardLayout, enterprise/*, AppointmentCalendar, UsersList, providers
 │   ├── config/api.ts              # Google, Meta / WhatsApp Business and LinkedIn settings (API_CONFIG)
+│   ├── config/apiUrl.ts           # Support API base URL (NEXT_PUBLIC_API_URL), shared by all API callers
 │   ├── contexts/                  # AuthContext (login, roles), NotificationContext (toasts, sounds)
 │   ├── hooks/                     # useEmailMarketing, useEmailTemplates, useWhatsApp, useDemoDetail, ...
 │   ├── lib/api.ts                 # Users, roles, permissions, leads and lead activities API
@@ -129,6 +140,7 @@ and the mailbox's `services/emailApi.ts` use a fixed backend URL.
 │   └── middleware.ts              # Route matcher (auth redirect is currently commented out)
 ├── public/sounds/                 # Notification sounds (+ public/sound-test.html)
 ├── *.py, GeM_Resellers.xlsx       # GeM / MSME data scripts and their source spreadsheet
+├── .env.example                   # Template for .env.local (lists every environment variable)
 ├── Dockerfile                     # Multi-stage container build
 └── azure-pipelines.prod.yml       # Azure DevOps build and deploy pipeline
 ```
@@ -166,10 +178,14 @@ TypeScript interfaces for API payloads: `LeadData` / `LeadActivityData` (`src/li
 - **Mailbox**: users add SMTP/IMAP accounts (Gmail and Outlook server presets) and read/send mail via the
   backend's `/email/*` endpoints.
 - **WhatsApp (Meta)**: the messaging page talks only to the backend's `/whatsapp/*` endpoints. Meta and webhook
-  setup: [README-WHATSAPP-SETUP.md](README-WHATSAPP-SETUP.md). Note that the `/api/webhook/whatsapp` route and the
-  Meta/Azure variables named in the two setup guides are not referenced in this repository's code.
+  setup: [README-WHATSAPP-SETUP.md](README-WHATSAPP-SETUP.md). Note that the `/api/webhook/whatsapp` route,
+  `META_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN` and `EMAIL_SENDER_ADDRESS` from the two setup guides are not referenced
+  in this repository's code. The email composer reads the Azure connection string from
+  `NEXT_PUBLIC_COMMUNICATION_SERVICES_CONNECTION_STRING` (the guide's name with a `NEXT_PUBLIC_` prefix), and its
+  sender address is set in `email-marketing/page.tsx`.
 - **Google, Meta and LinkedIn settings**: `API_CONFIG` in `src/config/api.ts` groups Google OAuth (Analytics
-  scopes), Meta / WhatsApp Business and LinkedIn settings. It is not imported by any module yet.
+  scopes), Meta / WhatsApp Business and LinkedIn settings, all read from server-only environment variables. It is
+  not imported by any module yet.
 
 ## Python data scripts
 
@@ -194,6 +210,9 @@ Run from the repository root (paths are relative to it). Background notes:
   3000 to container port 4101). Registry credentials come from a pipeline variable group.
 
 Things to verify before relying on the container:
+- `npm run build` inlines the `NEXT_PUBLIC_*` variables, and env files are not committed. The Dockerfile passes no
+  build arguments, so provide those variables to the build step (for example as Docker build args or a generated
+  `.env.production`), or they will be empty in the image.
 - `next start` listens on 3000 unless `PORT` is set, while the image exposes 4101; set `PORT=4101` or align ports.
 - The builder uses `/usr/src/app/crm`, the production stage `/usr/src/app`; check `npm start` finds `package.json`.
 - The pipeline triggers on `main`; this repository's branch is `master`.
@@ -216,5 +235,7 @@ and `npm run build` skips it.
   `services/enterpriseService.ts` are not used by any page.
 - **Next config**: both `next.config.js` (allows remote images from `images.unsplash.com`) and an empty
   `next.config.ts` exist; keep a single config file.
-- **Secrets**: keep credentials in environment variables (`.env.local`) rather than in source files.
+- **Secrets**: keep credentials in environment variables (`.env.local`) rather than in source files, and add any
+  new variable to `.env.example` with a placeholder value. Remember that `NEXT_PUBLIC_*` values are visible in the
+  browser.
 - **License**: no LICENSE file is included; `package.json` declares `"license": "ISC"`.

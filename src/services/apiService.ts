@@ -1,9 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import Cookies from 'js-cookie';
-
-// Check if there's a BASE_URL constant at the top of the file and update it
-// If not, add one
-const BASE_URL = 'https://api.quickbid.co.in/support';
+// Support API URL without the trailing /api (request paths start with /api/)
+import { API_ROOT_URL as BASE_URL } from '@/config/apiUrl';
 
 // Update the cookie name to match what the server sends
 const AUTH_COOKIE_NAME = 'auth_token';

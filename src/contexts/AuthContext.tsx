@@ -3,6 +3,7 @@
 import { createContext, useState, useContext, useEffect, ReactNode, useTransition } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import authService from '../services/authService';
+import { API_BASE_URL } from '@/config/apiUrl';
 
 const USER_STORAGE_KEY = 'user';
 const TOKEN_STORAGE_KEY = 'auth_token';
@@ -111,7 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('https://api.quickbid.co.in/support/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

@@ -9,8 +9,11 @@ class EncryptionConfigManager {
       return EncryptionConfigManager.instance;
     }
 
-    const configKey =
-      process.env.ENCRYPTION_KEY || "B3y0ndTheC0d3_EncrypT10nKey_99";
+    // Runs in the browser (waitlist service), so only a NEXT_PUBLIC_ variable is visible here.
+    const configKey = process.env.NEXT_PUBLIC_ENCRYPTION_KEY;
+    if (!configKey) {
+      throw new Error("NEXT_PUBLIC_ENCRYPTION_KEY is not set");
+    }
 
     this.config = {
       key: this.ensureValidKey(configKey),
