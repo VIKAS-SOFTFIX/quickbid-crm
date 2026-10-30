@@ -1,18 +1,18 @@
-trigger:
-  - main
+trigger: none
+pr: none
 
 resources:
   - repo: self
 
 variables:
-  - group: qb-prod-deploy-variables
+  - group: your-variable-group
 
   - name: dockerRegistryServiceConnection
-    value: 'bf813309-d3d2-42c1-ac2a-e3d98166edba'
+    value: '00000000-0000-0000-0000-000000000000'
   - name: imageRepository
-    value: 'web'
+    value: 'your-image-repository'
   - name: containerRegistry
-    value: 'quicbidprodregistery.azurecr.io'
+    value: 'your-registry.azurecr.io'
   - name: dockerfilePath
     value: '$(Build.SourcesDirectory)/Dockerfile'
   - name: tag
@@ -21,11 +21,11 @@ variables:
     value: 'ubuntu-latest'
 
   - name: vm1IpAddress
-    value: '74.225.252.106'
+    value: 'your-vm1-ip-address'
   - name: vm2IpAddress
-    value: '40.81.240.242'
+    value: 'your-vm2-ip-address'
   - name: vmServiceName
-    value: 'quickbidweb'
+    value: 'your-container-name'
 
 stages:
 
@@ -44,7 +44,7 @@ stages:
             command: buildAndPush
             repository: $(imageRepository)
             dockerfile: $(dockerfilePath)
-            containerRegistry: $(dockerRegistryServiceConnection)
+            containerRegistry: 'your-registry.azurecr.io'
             tags: |
               $(tag)
 
@@ -61,7 +61,7 @@ stages:
         - task: SSH@0
           displayName: Check Docker and disk space on VM1
           inputs:
-            sshEndpoint: 'qb-prod-vm001-connection'
+            sshEndpoint: 'your-vm1-ssh-connection'
             runOptions: 'inline'
             inline: |
               set -e
@@ -83,7 +83,7 @@ stages:
         - task: SSH@0
           displayName: Deploy container to VM1
           inputs:
-            sshEndpoint: 'qb-prod-vm001-connection'
+            sshEndpoint: 'your-vm1-ssh-connection'
             runOptions: 'inline'
             inline: |
               set -e
@@ -113,7 +113,7 @@ stages:
         - task: SSH@0
           displayName: Check Docker and disk space on VM2
           inputs:
-            sshEndpoint: 'qb-prod-vm002-connection'
+            sshEndpoint: 'your-vm2-ssh-connection'
             runOptions: 'inline'
             inline: |
               set -e
@@ -135,7 +135,7 @@ stages:
         - task: SSH@0
           displayName: Deploy container to VM2
           inputs:
-            sshEndpoint: 'qb-prod-vm002-connection'
+            sshEndpoint: 'your-vm2-ssh-connection'
             runOptions: 'inline'
             inline: |
               set -e
